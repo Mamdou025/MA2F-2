@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>MA2F - Gestion AquaSachet</title>
+    <meta name="description" content="Application de gestion pour la production et vente d'eau en sachets" />
+    <meta name="theme-color" content="#185FA5" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/manus-storage/ma2f-logo_ef99502d.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Analytics Umami — héritage de l'ancien hébergement Manus, qui
+      // injectait automatiquement VITE_ANALYTICS_ENDPOINT/VITE_ANALYTICS_WEBSITE_ID
+      // au build. Ni le .env local ni le projet Vercel actuel (voir CLAUDE.md,
+      // section hébergement) ne définissent ces deux variables aujourd'hui —
+      // Vite laisse alors les placeholders "%VITE_...%" tels quels dans le HTML
+      // final au lieu de les remplacer, ce qui produisait ici un
+      // <script src="%VITE_ANALYTICS_ENDPOINT%/umami"> avec un "%" invalide
+      // dans l'URL. Identifié le 2026-09-05 comme le déclencheur probable d'une
+      // exception interne à Google Maps ("Uncaught URIError: URI malformed",
+      // reproductible sur un onglet neuf) qui cassait l'affichage de la carte
+      // dans le formulaire "Modifier le client" (bandeau rouge "Oops!
+      // Something went wrong" ou carte restant vide) — Google Maps semble
+      // scanner document.scripts au démarrage (notamment pour détecter les
+      // inclusions multiples de sa propre librairie) et trébucher sur cette
+      // URL mal formée présente ailleurs sur la page. Ce script ne s'injecte
+      // donc désormais QUE si les deux valeurs ont réellement été substituées
+      // par Vite (sinon Umami reste simplement désactivé, comme avant que ces
+      // variables n'existent).
+      (function () {
+        var endpoint = "%VITE_ANALYTICS_ENDPOINT%";
+        var websiteId = "%VITE_ANALYTICS_WEBSITE_ID%";
+        if (endpoint.indexOf("%VITE_") === 0 || websiteId.indexOf("%VITE_") === 0) return;
+        var s = document.createElement("script");
+        s.defer = true;
+        s.src = endpoint + "/umami";
+        s.setAttribute("data-website-id", websiteId);
+        document.head.appendChild(s);
+      })();
+    </script>
+  </body>
+
+</html>

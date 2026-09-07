@@ -1,0 +1,22 @@
+{
+  "name": "MA2F - Gestion AquaSachet",
+  "short_name": "MA2F",
+  "description": "Application de gestion pour la production et vente d'eau en sachets",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#185FA5",
+  "theme_color": "#185FA5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/manus-storage/ma2f-logo_ef99502d.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/manus-storage/ma2f-logo_ef99502d.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

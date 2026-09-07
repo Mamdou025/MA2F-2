@@ -1,0 +1,584 @@
+rules_version = '2';
+
+// Règles de sécurité Firestore — MA2F AquaSachet
+// À déployer via : firebase deploy --only firestore:rules
+//
+// ARCHITECTURE RÉELLE (corrigé le 2026-08-18 — ce commentaire décrivait par
+// erreur l'ancien format document unique "data"/array "items", alors que les
+// règles ci-dessous appliquent déjà, et depuis longtemps, le format Phase 2
+// "un document Firestore par entité" — voir "Data model" dans CLAUDE.md) :
+// - ventes/{docId}, clients/{docId}, production/{docId}, depenses/{docId},
+//   recouvrements/{docId}, livraisons/{docId}, emballages/{docId},
+//   versements/{docId}, apports/{docId}, mouvements_stock/{docId},
+//   journal/{docId}, history/{docId}, notifications/{docId},
+//   reconciliations/{docId}, stock_controles/{docId}, corbeille/{docId} :
+//   un document par élément
+// - meta/{docId}               : commerciaux, livreurs, vehicules, commandes,
+//                                 maintenance, users, vehiculeOps, params,
+//                                 approvals, auditChain, etc. (voir
+//                                 META_FIELDS dans AppContext.tsx) — champs
+//                                 users/params réservés à l'admin, champs
+//                                 approvals/auditChain en AJOUT seul pour les
+//                                 rôles opérationnels (voir règles plus bas,
+//                                 durci le 2026-08-29)
+// - params/{docId}             : paramètres globaux
+// - backups/{docId}, backups_auto/{backupId} : sauvegardes (admin uniquement)
+// - backup_logs/{logId}        : logs de la sauvegarde cloud (Cloud Function, lecture admin)
+// - mobileMoneyIntents/{docId} : intentions de paiement Wave (Cloud Functions uniquement)
+// - positionsVehicules/{vehiculeId} : dernière position GPS de chaque camion (Cloud Function recevoirPositionVehicule uniquement)
+// - audit_log/{logId}          : piste d'audit (lecture admin, écriture Cloud Functions uniquement)
+//
+// DURCISSEMENT 2026-08-29 — validation métier + verrou de clôture côté serveur :
+// jusqu'ici, ces règles ne vérifiaient que le RÔLE de l'utilisateur
+// (canWrite()), jamais la FORME ni la VALIDITÉ des données écrites, et
+// jamais si la date concernée appartenait à une journée déjà clôturée. La
+// validation stricte (montants positifs, journée non clôturée, etc.)
+// n'existait que côté client (client/src/lib/cloture.ts, formulaires React)
+// et dans les Cloud Functions callables (validateVente, validatePaiement,
+// cloturerCaisse — cloud-functions/src/index.ts). Ces deux couches sont
+// contournables : le SDK Firestore client (ou la console Firebase, ou un
+// appel REST direct) permet d'écrire n'importe quelle donnée tant que le
+// RÔLE passe, y compris une vente à 0 F, un mouvement de stock négatif, ou
+// la modification d'une vente d'une journée déjà clôturée — exactement le
+// scénario "contourner l'écran normal" à corriger. Les fonctions
+// dateEstVerrouillee()/valid*() ci-dessous appliquent désormais, au niveau
+// de la base de données elle-même, les mêmes contrôles que les Cloud
+// Functions, pour les collections ventes, depenses, production,
+// recouvrements, versements, apports et mouvements_stock — de sorte qu'une
+// écriture invalide ou une modification d'une journée clôturée soit REFUSÉE
+// par Firestore, quel que soit le chemin emprunté pour l'envoyer (UI,
+// Cloud Function contournée, ou accès direct au SDK/API).
+//
+// Le verrou de clôture s'appuie sur params/global.clotureesDates (nouveau
+// champ : liste plate des dates "YYYY-MM-DD" actuellement clôturées),
+// maintenu par cloturerCaisse/annulerCloture (cloud-functions/src/index.ts)
+// et par createCloture/annulerCloture (client/src/lib/cloture.ts, chemin de
+// secours quand les Cloud Functions sont indisponibles — voir CLAUDE.md
+// "no client-side fallback" et le commentaire en tête de
+// cloud-functions/src/index.ts). C'est un champ plat (pas le tableau
+// clotures[] existant, qui contient des objets hétérogènes et n'est pas
+// exploitable par un test d'appartenance en langage de règles Firestore),
+// recalculé intégralement à chaque clôture/annulation — donc auto-réparateur
+// pour toute journée clôturée ou annulée après ce déploiement. Les journées
+// déjà clôturées AVANT ce déploiement et jamais retouchées depuis ne seront
+// listées dans clotureesDates qu'après la prochaine clôture/annulation qui
+// touche params/global (voir CLAUDE.md pour la procédure de backfill
+// ponctuelle recommandée).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // FONCTIONS UTILITAIRES — RÔLES
+    // ============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+
+    function hasAnyRole(roles) {
+      return isAuthenticated() && request.auth.token.role in roles;
+    }
+
+    // Rôles autorisés à écrire des données opérationnelles
+    function canWrite() {
+      return hasAnyRole(['admin', 'caissier', 'commercial']);
+    }
+
+    // ============================================================
+    // FONCTIONS UTILITAIRES — VERROU DE CLÔTURE (durci 2026-08-29)
+    // ============================================================
+
+    // Liste plate des dates "YYYY-MM-DD" actuellement clôturées, lue depuis
+    // params/global.clotureesDates. exists() protège le cas où le document
+    // n'a jamais été créé (installation neuve, aucune clôture encore faite).
+    function clotureesDates() {
+      return exists(/databases/$(database)/documents/params/global)
+        ? get(/databases/$(database)/documents/params/global).data.get('clotureesDates', [])
+        : [];
+    }
+
+    // Une date vide/absente n'est jamais considérée comme verrouillée (elle
+    // sera de toute façon rejetée par la validation de forme de chaque
+    // collection, qui exige un champ date valide).
+    function dateEstVerrouillee(date) {
+      return date is string && date in clotureesDates();
+    }
+
+    // À l'update, une écriture doit être refusée si la date AVANT ou APRÈS
+    // modification est verrouillée — empêche à la fois de modifier un
+    // document d'une journée clôturée, et de "déplacer" un document vers/hors
+    // d'une journée clôturée pour contourner le verrou.
+    function operationSurJourneeOuverte(dateAvant, dateApres) {
+      return !dateEstVerrouillee(dateAvant) && !dateEstVerrouillee(dateApres);
+    }
+
+    // ============================================================
+    // FONCTIONS UTILITAIRES — VALIDATION MÉTIER
+    // Reprend les mêmes bornes que validateVente/validatePaiement
+    // (cloud-functions/src/index.ts) pour que ces mêmes garde-fous
+    // s'appliquent aussi à une écriture qui ne passe pas par la Cloud
+    // Function (ex: SDK client direct, secours hors-ligne).
+    // ============================================================
+
+    function estDateValide(date) {
+      return date is string && date.size() == 10;
+    }
+
+    function estMontantPositif(v) {
+      return v is number && v > 0;
+    }
+
+    function venteValide(d) {
+      return d.client is string && d.client.size() > 0 &&
+        d.packs is number && d.packs > 0 && d.packs <= 10000 &&
+        d.prix is number && d.prix > 0 && d.prix <= 50000 &&
+        d.mode in ['Payé', 'Crédit'] &&
+        (!('avance' in d) || d.avance == null ||
+          (d.avance is number && d.avance >= 0 && d.avance <= d.packs * d.prix + 1)) &&
+        estDateValide(d.date);
+    }
+
+    function depenseValide(d) {
+      return d.categorie is string && d.categorie.size() > 0 &&
+        estMontantPositif(d.montant) &&
+        estDateValide(d.date);
+    }
+
+    function productionValide(d) {
+      return d.packs is number && d.packs > 0 &&
+        estDateValide(d.date);
+    }
+
+    function recouvrementValide(d) {
+      return d.venteId is string && d.venteId.size() > 0 &&
+        d.client is string && d.client.size() > 0 &&
+        estMontantPositif(d.montant) &&
+        estDateValide(d.date);
+    }
+
+    function versementValide(d) {
+      return d.beneficiaire is string && d.beneficiaire.size() > 0 &&
+        estMontantPositif(d.montant) &&
+        estDateValide(d.date);
+    }
+
+    function apportValide(d) {
+      return d.source is string && d.source.size() > 0 &&
+        estMontantPositif(d.montant) &&
+        estDateValide(d.date);
+    }
+
+    function mouvementStockValide(d) {
+      return d.type in ['production', 'reception', 'vente', 'retour', 'casse',
+          'don_police', 'ajustement', 'chargement', 'retour_camion',
+          'transfert', 'consommation', 'ouverture'] &&
+        d.produit in ['sachet_plein', 'sachet_vide', 'rouleau_plastique', 'casier'] &&
+        d.quantite is number && d.quantite > 0 &&
+        d.unite in ['packs', 'kg', 'unites'] &&
+        (d.emplacementSource != null || d.emplacementDest != null) &&
+        estDateValide(d.date);
+    }
+
+    // ============================================================
+    // COLLECTIONS PRINCIPALES (format document unique avec array items)
+    // Tous les rôles opérationnels (admin, caissier, commercial)
+    // peuvent lire et écrire
+    // ============================================================
+
+    // Durci 2026-08-29 : au-delà du rôle, la donnée doit avoir une forme
+    // valide (montants positifs, mode connu, etc. — mêmes bornes que
+    // validateVente côté Cloud Function) et la date concernée ne doit pas
+    // appartenir à une journée déjà clôturée. Une fois clôturée, la seule
+    // façon de modifier une vente de ce jour est de repasser par
+    // annulerCloture (admin, motif obligatoire, cloud-functions/src/index.ts)
+    // — y compris pour un admin, qui ne peut plus écrire directement ici.
+    match /ventes/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && venteValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if canWrite() && venteValide(request.resource.data) &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if canWrite() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // Un client peut être créé/modifié par tout rôle opérationnel, mais seul
+    // un admin peut le supprimer — évite qu'un bug ou une erreur d'un rôle
+    // inférieur (caissier/commercial) n'efface des fiches clients.
+    match /clients/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if canWrite();
+      allow delete: if isAdmin();
+    }
+
+    // Durci 2026-08-29 : mêmes garde-fous que ventes ci-dessus (forme +
+    // verrou de clôture), la production du jour entrant dans le calcul du
+    // solde de clôture (voir createCloture() côté client).
+    match /production/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && productionValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if canWrite() && productionValide(request.resource.data) &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if canWrite() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // Durci 2026-08-29 : mêmes garde-fous que ventes ci-dessus.
+    match /depenses/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && depenseValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if canWrite() && depenseValide(request.resource.data) &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if canWrite() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // Un recouvrement peut être créé par tout rôle opérationnel (usage
+    // quotidien), mais seul un admin peut le modifier ou le supprimer après
+    // coup — corriger une erreur de saisie reste possible, mais un
+    // caissier/commercial ne peut pas altérer ou effacer un recouvrement déjà
+    // enregistré (contrairement à avant, où canWrite() autorisait tout).
+    // Durci 2026-08-29 : forme valide (montant positif, vente/client
+    // renseignés) + verrou de clôture, en plus du contrôle de rôle existant.
+    // Le contrôle "le montant ne dépasse pas le reste à payer" reste
+    // effectué par validatePaiement côté Cloud Function (nécessite de lire
+    // et sommer TOUS les recouvrements existants de la vente, hors de portée
+    // raisonnable du langage de règles Firestore) — c'est pourquoi le chemin
+    // recommandé reste la Cloud Function ; ce correctif ferme le contournement
+    // le plus dangereux (montant négatif/nul, journée clôturée) pour le cas
+    // où elle serait indisponible.
+    match /recouvrements/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && recouvrementValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if isAdmin() &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if isAdmin() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // Même logique que clients : création/modification ouvertes aux rôles
+    // opérationnels, suppression réservée aux admins.
+    match /livraisons/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if canWrite();
+      allow delete: if isAdmin();
+    }
+
+    match /emballages/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if canWrite();
+    }
+
+    // Durci 2026-08-29 : forme valide + verrou de clôture (les versements du
+    // jour entrent dans le calcul du solde de clôture).
+    match /versements/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && versementValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if canWrite() && versementValide(request.resource.data) &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if canWrite() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // Durci 2026-08-29 : forme valide + verrou de clôture (mêmes raisons que
+    // versements ci-dessus, côté entrées).
+    match /apports/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && apportValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if canWrite() && apportValide(request.resource.data) &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if canWrite() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // ============================================================
+    // COLLECTIONS SÉPARÉES (journal, historique, etc.)
+    // ============================================================
+
+    // Durci 2026-08-29 : un mouvement de stock doit avoir une forme valide
+    // (quantité strictement positive — le sens vient du type, voir
+    // client/src/lib/stock.ts —, type/produit/unité connus, au moins un
+    // emplacement source ou destination) et ne peut plus être créé/modifié/
+    // supprimé pour une journée déjà clôturée, exactement le scénario
+    // "modifier un mouvement de stock" cité comme faille à corriger.
+    match /mouvements_stock/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite() && mouvementStockValide(request.resource.data) &&
+        !dateEstVerrouillee(request.resource.data.date);
+      allow update: if canWrite() && mouvementStockValide(request.resource.data) &&
+        operationSurJourneeOuverte(resource.data.date, request.resource.data.date);
+      allow delete: if canWrite() && !dateEstVerrouillee(resource.data.date);
+    }
+
+    // Journal d'activité et historique des modifications : mêmes principes
+    // que recouvrements ci-dessus (création par tout rôle opérationnel —
+    // logActivity()/createHistoryEntry()/updateHistoryEntry() ne créent
+    // jamais qu'une NOUVELLE entrée décrivant une action, ils ne modifient
+    // ni ne suppriment jamais un document déjà écrit — voir history.ts).
+    // Modification/suppression réservées à l'admin : un caissier/commercial
+    // n'a aucun usage légitime pour altérer une trace déjà enregistrée, et
+    // le laisser faire rendrait l'historique/le journal peu fiables comme
+    // preuve d'audit (voir aussi meta/{docId} plus bas pour approvals/
+    // auditChain, même logique "ajout oui, modification non").
+    match /journal/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite();
+      allow update, delete: if isAdmin();
+    }
+
+    match /history/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if canWrite();
+      allow update, delete: if isAdmin();
+    }
+
+    match /reconciliations/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if canWrite();
+    }
+
+    // Contrôle stock usine (comptage physique vs théorique) : mêmes droits
+    // que reconciliations, dont c'est l'équivalent au niveau usine.
+    match /stock_controles/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if canWrite();
+    }
+
+    // Corbeille (suppression douce) : mêmes droits que les collections
+    // opérationnelles, puisque tous les rôles qui peuvent supprimer une
+    // vente/un livreur/etc. doivent pouvoir y déposer l'élément supprimé
+    // et le restaurer.
+    match /corbeille/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if canWrite();
+    }
+
+    // Document de clôture par date (transactionCloture() dans
+    // firestoreService.ts). Lecture ouverte à tout authentifié ; écriture
+    // réservée à l'admin — même principe que params/global, qui reste
+    // aujourd'hui la source de vérité lue par l'app (voir CLAUDE.md, "Data
+    // model" : cette collection n'est pas encore relue côté client).
+    match /clotures/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Rappels internes (NotificationBell.tsx / CreancesSection.tsx — ex:
+    // relancer un caissier/commercial sur une créance client, added
+    // 2026-08-21). Lecture ouverte à tout utilisateur authentifié — même
+    // modèle que journal/history/reconciliations ci-dessus, l'app n'isole la
+    // lecture par utilisateur nulle part ailleurs, et un rappel ne contient
+    // que des informations métier internes (pas de donnée personnelle
+    // sensible) ; le filtrage "mes rappels" reste côté client. Création
+    // volontairement réservée à un admin (choix explicite de l'utilisateur,
+    // pas canWrite() comme les autres collections) : seul un admin peut
+    // déclencher un rappel vers un caissier/commercial. Le destinataire
+    // (identifié par son email, comparé au claim request.auth.token.email —
+    // voir le commentaire sur Notification.destinataireEmail dans types.ts)
+    // peut uniquement marquer SON PROPRE rappel comme lu, et seulement les
+    // champs lu/luLe — diff().affectedKeys() empêche qu'il modifie le
+    // message ou se réassigne un rappel destiné à quelqu'un d'autre, même en
+    // passant par le setDoc() intégral qu'utilise AppContext.tsx (voir
+    // diffedCollections) plutôt qu'un updateDoc() partiel.
+    match /notifications/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        request.auth.token.email == resource.data.destinataireEmail &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lu', 'luLe'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Sauvegardes manuelles/automatiques créées depuis l'app (rubrique
+    // "Sauvegardes", réservée aux admins côté UI) — accès restreint aux
+    // admins pour éviter qu'un rôle inférieur ne purge ou altère l'historique
+    // de sauvegardes.
+    match /backups/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // COLLECTION: meta/{docId}
+    // "Centre de contrôle" : un seul document Firestore (meta/data) réunit
+    // des champs opérationnels (commerciaux, livreurs, commandes, vehicules,
+    // maintenance, vehiculeOps, producteurs, avances, employes — voir
+    // META_FIELDS dans AppContext.tsx) ET des champs sensibles (users,
+    // params, approvals, auditChain). Comme Firestore n'a pas de permission
+    // au niveau du champ, "allow write: if canWrite()" laissait n'importe
+    // quel caissier/commercial réécrire TOUT le document — y compris les
+    // comptes utilisateurs, les paramètres globaux, le statut des demandes
+    // d'approbation et la chaîne d'audit — même si l'écran normal ne le
+    // permet pas (un accès direct au SDK Firestore ou aux DevTools du
+    // navigateur suffisait à contourner la restriction côté UI). Ce garde
+    // applique côté serveur, pour ce document, la même séparation
+    // "opérationnel / admin" que le reste de l'app :
+    //  - users, params : entièrement réservés à l'admin. Aucun rôle
+    //    opérationnel n'a de besoin métier d'écrire ces champs (comparer à
+    //    la collection users/{userId} et au document params/global plus
+    //    bas, déjà admin-only ; ce sont les mêmes données, users/params
+    //    dans meta/data n'en est qu'un miroir hérité de l'ancien format —
+    //    voir AppContext.tsx).
+    //  - approvals, auditChain : caissier/commercial peuvent toujours
+    //    AJOUTER une entrée (demande d'approbation, entrée d'audit —
+    //    nécessaire à leur usage quotidien courant, voir
+    //    ApprobationsSection.tsx / logActivity dans AppContext.tsx), mais
+    //    ne peuvent ni modifier ni supprimer une entrée déjà présente :
+    //    hasAll() garantit que l'intégralité de l'ancien contenu reste un
+    //    sous-ensemble du nouveau, quel que soit l'ordre. Seul un admin
+    //    peut donc réellement approuver/rejeter une demande ou purger la
+    //    chaîne d'audit — avant ce correctif, canApprove() dans
+    //    approvalWorkflow.ts n'était qu'une vérification côté client.
+    //
+    // NOTE (2026-08-29) : maintenance, vehiculeOps et commandes vivent aussi
+    // dans ce document (META_FIELDS) et ne bénéficient PAS encore du verrou
+    // de clôture ni d'une validation de forme au niveau des règles — un
+    // rôle opérationnel peut toujours réécrire l'intégralité de ces trois
+    // champs en un seul setDoc(), ce qui rend un contrôle "élément par
+    // élément" (comme ventes/depenses/etc. ci-dessus) impraticable en
+    // langage de règles Firestore sans les migrer d'abord vers des
+    // collections à documents individuels (ENTITY_COLLECTIONS) — la
+    // recommandation déjà notée dans CLAUDE.md pour "commandes" (voir
+    // "Data model"). À faire dans un prochain lot si ces trois champs
+    // doivent bénéficier des mêmes garanties.
+    function metaAdminOnlyFieldsUntouched() {
+      // "actionnaires"/"mouvementsActionnaires" (2026-09-06) : données
+      // d'actionnariat/dividendes, aussi sensibles que users/params — même
+      // garantie côté rules, en plus du filtre client ADMIN_ONLY_META_FIELDS
+      // (AppContext.tsx).
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['users', 'params', 'actionnaires', 'mouvementsActionnaires']);
+    }
+    function metaApprovalsAppendOnly() {
+      return request.resource.data.get('approvals', []).hasAll(resource.data.get('approvals', []));
+    }
+    function metaAuditChainAppendOnly() {
+      return request.resource.data.get('auditChain', []).hasAll(resource.data.get('auditChain', []));
+    }
+
+    match /meta/{docId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAdmin() || (
+        canWrite() &&
+        !request.resource.data.keys().hasAny(['users', 'params', 'actionnaires', 'mouvementsActionnaires'])
+      );
+
+      allow update: if isAdmin() || (
+        canWrite() &&
+        metaAdminOnlyFieldsUntouched() &&
+        metaApprovalsAppendOnly() &&
+        metaAuditChainAppendOnly()
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // ============================================================
+    // COLLECTION: params/{docId}
+    // Paramètres globaux — admin uniquement pour modification
+    // Tous peuvent lire
+    // ============================================================
+    match /params/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // COLLECTION: users/{userId}
+    // Profils utilisateurs — admin uniquement
+    // ============================================================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // COLLECTION: audit_log/{logId}
+    // Piste d'audit — append-only pour tous les authentifiés
+    // ============================================================
+    // Aucun code client n'écrit dans audit_log (vérifié — seule la Cloud
+    // Function l'utilise, via le SDK Admin qui ignore ces règles de toute
+    // façon). "allow create: if isAuthenticated()" ne servait donc à rien
+    // pour l'app et permettait à n'importe quel compte connecté de polluer
+    // le journal d'audit avec de fausses entrées.
+    match /audit_log/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ============================================================
+    // COLLECTION: backups_auto/{backupId}
+    // Sauvegardes automatiques — lecture admin, écriture service
+    // ============================================================
+    match /backups_auto/{backupId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ============================================================
+    // COLLECTION: backup_logs/{logId}
+    // Historique de la sauvegarde quotidienne Google Drive (functions/).
+    // Écrite uniquement par le Cloud Function via le SDK Admin (qui ignore
+    // ces règles) — on refuse donc toute écriture côté client, et on
+    // n'autorise la lecture qu'aux admins (pour afficher un indicateur
+    // "dernière sauvegarde réussie/échouée" dans l'app).
+    // ============================================================
+    match /backup_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ============================================================
+    // COLLECTION: mobileMoneyIntents/{docId}
+    // Intentions de paiement mobile money (Wave) — créées et confirmées
+    // exclusivement par les Cloud Functions (SDK Admin, qui ignore ces
+    // règles). Le client n'a besoin que de lire le statut en temps réel pour
+    // afficher "en attente"/"confirmé" ; aucune écriture directe n'est
+    // légitime depuis l'app.
+    // ============================================================
+    match /mobileMoneyIntents/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================================
+    // COLLECTION: positionsVehicules/{vehiculeId}
+    // Dernière position GPS connue de chaque camion, rapportée par un
+    // boîtier GPS physique installé dedans — écrite EXCLUSIVEMENT par la
+    // Cloud Function recevoirPositionVehicule (cloud-functions/src/index.ts,
+    // SDK Admin, qui ignore ces règles), jamais par l'app cliente. Même
+    // principe que mobileMoneyIntents ci-dessus : le client ne fait que lire
+    // en temps réel pour afficher la position sur la carte de Suivi
+    // logistique (SuiviLogistiqueSection.tsx).
+    // ============================================================
+    match /positionsVehicules/{vehiculeId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================================
+    // LEGACY: collections de migration
+    // ============================================================
+    match /business/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if canWrite();
+    }
+
+    // ============================================================
+    // RÈGLE PAR DÉFAUT: tout refuser
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
