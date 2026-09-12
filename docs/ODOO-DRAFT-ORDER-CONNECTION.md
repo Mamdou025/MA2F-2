@@ -37,11 +37,14 @@ ACL. Drafts do not reserve stock or post invoices/payments.
 
 ## Verification
 
-Local native Odoo/PostgreSQL rollback tests passed: 4,200 FCFA with no tax,
+Local native Odoo/PostgreSQL rollback tests passed: 4,200 FCFA with no tax even
+when the test product has an inherited fictional tax,
 same-ID replay, conflicting replay rejection, invalid input, customer/gateway
 restrictions, creation-failure rollback and no stock/invoice effects. Focused
 HTTP/worker tests and TypeScript checks passed. These validate source, not live
-end-to-end order activation.
+end-to-end order activation. Replit MA2F source was updated with the four reviewed
+connector/test files; five focused tests, TypeScript and build passed remotely.
+It has not been republished, and the production Odoo addon remains uncommissioned.
 
 French is installed and active for the human Odoo account; standard invoice,
 sales, inventory, manufacturing and settings screens were verified in French.

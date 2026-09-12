@@ -240,7 +240,10 @@ in historical notes are superseded: do not configure tax parameters. The revised
 draft connector uses plain FCFA amounts and explicitly clears native line taxes.
 Local native rollback tests passed, including an inherited product tax fixture.
 French is installed and active for the human Odoo account. Live sales and purchase
-tax defaults were cleared, saved and verified blank. Existing product-specific
-tax assignments still need inspection. Source changes are not yet deployed;
+tax defaults were cleared, saved and verified blank. The finished pack and film
+products also had 15% sales/purchase assignments; these were cleared and saved.
+MA2F's four connector/test files were
+applied to Replit's ma2f-next source; all five focused tests, TypeScript and the
+production build passed (Replit commit 4e56a9b6). No republish or live addon activation was performed;
 native order activation, current-data reconciliation and physical stock counts
 remain outstanding. See `ODOO-DRAFT-ORDER-CONNECTION.md`.
