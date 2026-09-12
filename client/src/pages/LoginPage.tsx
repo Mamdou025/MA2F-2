@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { MA2FMark } from "@/components/MA2FMark";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,11 +61,7 @@ export default function LoginPage() {
         <CardContent className="p-8">
           <div className="text-center mb-8">
             <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#1B4B6B] to-[#2D7A9E] flex items-center justify-center shadow-lg">
-              <img
-                src="/manus-storage/ma2f-logo_ef99502d.png"
-                alt="MA2F"
-                className="w-14 h-14 object-contain"
-              />
+              <MA2FMark className="w-14 h-14 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900">MA2F</h1>
             <p className="text-gray-500 mt-1 text-sm">Gestion AquaSachet</p>

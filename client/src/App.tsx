@@ -92,7 +92,7 @@ function AppContent() {
       <AppSidebar />
       <div className="lg:ml-64 min-h-screen flex flex-col">
         {/* Barre supérieure fixe : recherche globale + exports */}
-        <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm border-b border-border">
+        <header style={{ top: "var(--odoo-status-height, 0px)" }} className="sticky z-30 bg-card/95 backdrop-blur-sm border-b border-border">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 py-3 pt-16 lg:pt-3">
             <GlobalSearch />
             <div className="flex gap-2 items-center">

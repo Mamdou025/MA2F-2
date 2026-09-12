@@ -1,0 +1,94 @@
+{
+  "stock-logistics-workflow": {
+    "url": "https://github.com/OCA/stock-logistics-workflow.git",
+    "commit": "b595e41ab3c728baadbc061dbcde535e2b583500",
+    "modules": {
+      "stock_no_negative": {
+        "version": "19.0.1.0.0",
+        "license": "AGPL-3",
+        "depends": [
+          "stock"
+        ],
+        "external_dependencies": null
+      }
+    }
+  },
+  "server-tools": {
+    "url": "https://github.com/OCA/server-tools.git",
+    "commit": "028b450b06ebd70424534cbd89f37ed134f7200d",
+    "modules": {
+      "auditlog": {
+        "version": "19.0.2.0.0",
+        "license": "AGPL-3",
+        "depends": [
+          "base"
+        ],
+        "external_dependencies": null
+      }
+    }
+  },
+  "account-financial-reporting": {
+    "url": "https://github.com/OCA/account-financial-reporting.git",
+    "commit": "6a7c307a529d47534a68335e39f2730eeff63ab0",
+    "modules": {
+      "account_financial_report": {
+        "version": "19.0.0.0.21",
+        "license": "AGPL-3",
+        "depends": [
+          "account",
+          "date_range",
+          "report_xlsx"
+        ],
+        "external_dependencies": null
+      }
+    }
+  },
+  "manufacture": {
+    "url": "https://github.com/OCA/manufacture.git",
+    "commit": "32b394b8f8191d9847c28f44fa0f46e06d1833d1",
+    "modules": {
+      "quality_control_oca": {
+        "version": "19.0.1.0.0",
+        "license": "AGPL-3",
+        "depends": [
+          "product"
+        ],
+        "external_dependencies": null
+      }
+    }
+  },
+  "server-ux": {
+    "url": "https://github.com/OCA/server-ux.git",
+    "commit": "e2f17815d3b872c7b836900159b62028d600e52e",
+    "modules": {
+      "date_range": {
+        "version": "19.0.1.0.0",
+        "license": "LGPL-3",
+        "depends": [
+          "web"
+        ],
+        "external_dependencies": null
+      }
+    }
+  },
+  "reporting-engine": {
+    "url": "https://github.com/OCA/reporting-engine.git",
+    "commit": "b730d603317691d9608a8a3c5710286d9dbc81f1",
+    "modules": {
+      "report_xlsx": {
+        "version": "19.0.1.0.2",
+        "license": "AGPL-3",
+        "depends": [
+          "base",
+          "web"
+        ],
+        "external_dependencies": {
+          "python": [
+            "xlsxwriter",
+            "xlrd"
+          ]
+        }
+      }
+    }
+  }
+}

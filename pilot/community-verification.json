@@ -1,0 +1,42 @@
+{
+  "scope": "local fictional pilot only; no production deployment",
+  "verified_at_utc": "2026-09-10T04:09:17Z",
+  "acceptance": {
+    "status": "passed",
+    "checks": [
+      "all nine selected and dependency modules installed",
+      "supplier receipt adds exactly 10 kg",
+      "manufacturing produces 100 net packs, consumes 5 kg",
+      "native order reservation reduces availability to 80",
+      "partial delivery leaves native backorder of 8 packs",
+      "delivery records 20 delivered packs",
+      "customer return restores 2 packs",
+      "OCA rejects negative stock and rolls back quantity",
+      "quality outcome success",
+      "quality outcome failed",
+      "OCA audit captures customer update and user",
+      "financial report wizard registered",
+      "OCA ledger matches balanced fictional entry exactly",
+      "OCA generates actual XLSX with fixture amounts",
+      "native fleet dispatch model available",
+      "native maintenance and expenses available",
+      "no test invoices posted"
+    ],
+    "business_changes": "rolled_back",
+    "scope": "local native/OCA pilot; no live tax decision"
+  },
+  "upstream": {
+    "tests": 94,
+    "failures": 0,
+    "errors": 0,
+    "log_sha256": "a085c7662934a22e3f1b2bb700c88c4b2f09269a5dff0c64f68278dda9d189e8"
+  },
+  "source_lock_sha256": "c13354322b4512896ecb7a8e2fe3c9c444308e53ab1f7904d3ff56d4da08bbfa",
+  "rollback_counts": {
+    "sale_order": 0,
+    "mrp_production": 0,
+    "stock_move": 0,
+    "account_move": 0,
+    "qc_inspection": 0
+  }
+}

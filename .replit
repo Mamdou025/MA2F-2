@@ -1,0 +1,12 @@
+# Transitional MA2F web deployment. Does not migrate Firebase or start the Odoo pilot.
+entrypoint = "server/index.ts"
+modules = ["nodejs-22"]
+run = ["corepack", "pnpm", "dev:replit"]
+
+[deployment]
+build = ["sh", "-c", "corepack pnpm install --frozen-lockfile && corepack pnpm build:replit"]
+run = ["corepack", "pnpm", "start"]
+
+[[ports]]
+localPort = 3000
+externalPort = 80

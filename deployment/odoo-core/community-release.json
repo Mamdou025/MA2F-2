@@ -1,0 +1,106 @@
+{
+  "stock-logistics-workflow": {
+    "url": "https://github.com/OCA/stock-logistics-workflow.git",
+    "commit": "b595e41ab3c728baadbc061dbcde535e2b583500",
+    "modules": {
+      "stock_no_negative": {
+        "version": "19.0.1.0.0",
+        "license": "AGPL-3",
+        "depends": [
+          "stock"
+        ],
+        "external_dependencies": null
+      }
+    },
+    "archive_sha256": "af893625144796949c4546d336041afc3056e747c651963136842dca5afa1979",
+    "tree_sha256": "fdd26f91e5598d8bc2a5bd58e6f84b1ac263a5ea028d3a23581aae7f173f4a6d"
+  },
+  "server-tools": {
+    "url": "https://github.com/OCA/server-tools.git",
+    "commit": "028b450b06ebd70424534cbd89f37ed134f7200d",
+    "modules": {
+      "auditlog": {
+        "version": "19.0.2.0.0",
+        "license": "AGPL-3",
+        "depends": [
+          "base"
+        ],
+        "external_dependencies": null
+      }
+    },
+    "archive_sha256": "ee3362eea95864c6a0504fa7113f4cfc8b0246ae22c008dcef7c3bd7b429a098",
+    "tree_sha256": "65530f14b4a4073ec2044fd432edd3ec29096e089d26202048857e21597bafac"
+  },
+  "account-financial-reporting": {
+    "url": "https://github.com/OCA/account-financial-reporting.git",
+    "commit": "6a7c307a529d47534a68335e39f2730eeff63ab0",
+    "modules": {
+      "account_financial_report": {
+        "version": "19.0.0.0.21",
+        "license": "AGPL-3",
+        "depends": [
+          "account",
+          "date_range",
+          "report_xlsx"
+        ],
+        "external_dependencies": null
+      }
+    },
+    "archive_sha256": "807af72c6d6a875ec1a9d47162334a32d8fb863d723b38ae910894fc1972f2ee",
+    "tree_sha256": "a92aa6b36cb53b7a6c56ec0da5ac723f6884762b9bd11e631d1f511993a7852f"
+  },
+  "manufacture": {
+    "url": "https://github.com/OCA/manufacture.git",
+    "commit": "32b394b8f8191d9847c28f44fa0f46e06d1833d1",
+    "modules": {
+      "quality_control_oca": {
+        "version": "19.0.1.0.0",
+        "license": "AGPL-3",
+        "depends": [
+          "product"
+        ],
+        "external_dependencies": null
+      }
+    },
+    "archive_sha256": "faa0f880c4ef2f71a7768aa11fa0d4ccd8fde44a5e51cb3f74fbd315f0647232",
+    "tree_sha256": "94a91d9da095a30f9ba0f44975eafe34b25fc44ef7d3379cc7e44577dcc833c4"
+  },
+  "server-ux": {
+    "url": "https://github.com/OCA/server-ux.git",
+    "commit": "e2f17815d3b872c7b836900159b62028d600e52e",
+    "modules": {
+      "date_range": {
+        "version": "19.0.1.0.0",
+        "license": "LGPL-3",
+        "depends": [
+          "web"
+        ],
+        "external_dependencies": null
+      }
+    },
+    "archive_sha256": "3cfc357ee09b3b85d19ba49588d6f3dd1c769f5cd8659453d6aff3024c71cb9d",
+    "tree_sha256": "67d5d6854c064f5c87ce32b53f18710d0a37a14088d7e244d8451af4126a234c"
+  },
+  "reporting-engine": {
+    "url": "https://github.com/OCA/reporting-engine.git",
+    "commit": "b730d603317691d9608a8a3c5710286d9dbc81f1",
+    "modules": {
+      "report_xlsx": {
+        "version": "19.0.1.0.2",
+        "license": "AGPL-3",
+        "depends": [
+          "base",
+          "web"
+        ],
+        "external_dependencies": {
+          "python": [
+            "xlsxwriter",
+            "xlrd"
+          ]
+        }
+      }
+    },
+    "archive_sha256": "42ccde6d005e57cfc501445c945795fb784f30986e4055f442c776348fb5ec47",
+    "tree_sha256": "1b4bd8bee0003fb1eadd6801b5e51c0e2ee4e0933cec1b63c4f23b9a82f664b3"
+  }
+}

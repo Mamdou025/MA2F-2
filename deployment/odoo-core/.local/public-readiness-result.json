@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-09-09T14:28:38.300259+00:00",
+  "deployment": "5461e6d0-49a0-407b-a7a6-412a88b9df28",
+  "url": "https://ma2f-odoo-mamdou025.replit.app",
+  "checks": [
+    {
+      "asset": "/web/assets/a86db4a/web.assets_frontend.min.css",
+      "http": 200,
+      "bytes": 480483
+    },
+    {
+      "asset": "/web/assets/ac0b18b/web.assets_frontend_minimal.min.js",
+      "http": 200,
+      "bytes": 15195
+    },
+    {
+      "asset": "/web/assets/f2c92bd/web.assets_frontend_lazy.min.js",
+      "http": 200,
+      "bytes": 1919569
+    },
+    {
+      "asset": "/web/assets/debug/web.assets_frontend.css",
+      "http": 200,
+      "bytes": 539728
+    },
+    {
+      "asset": "/web/assets/debug/web.assets_frontend_minimal.js",
+      "http": 200,
+      "bytes": 31943
+    },
+    {
+      "asset": "/web/assets/debug/web.assets_frontend_lazy.js",
+      "http": 200,
+      "bytes": 3497476
+    }
+  ],
+  "status": "passed",
+  "loginHttp": 200,
+  "signupHidden": true,
+  "defaultAdminDenied": true
+}

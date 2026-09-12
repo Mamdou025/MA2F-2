@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-labelledby="title">
+  <title id="title">MA2F Gestion AquaSachet</title>
+  <rect width="82" height="82" x="7" y="7" rx="20" fill="#1b4b6b"/>
+  <path d="M48 22c-9 14-22 27-22 41a22 22 0 0 0 44 0c0-14-13-27-22-41Z" fill="#e6f6ff"/>
+  <path d="M35 64c7 5 19 5 26-1" fill="none" stroke="#6fa8c9" stroke-width="5" stroke-linecap="round"/>
+  <text x="108" y="46" fill="#0f2a3d" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="700">MA2F</text>
+  <text x="108" y="72" fill="#526575" font-family="Inter,Arial,sans-serif" font-size="17">Gestion AquaSachet</text>
+</svg>

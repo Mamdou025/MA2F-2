@@ -1,0 +1,10 @@
+run = "bash start.sh"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+build = ["bash", "install.sh"]
+deploymentTarget = "vm"
+run = ["bash", "start.sh"]

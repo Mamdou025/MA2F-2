@@ -1,5 +1,7 @@
+import { OdooConnectionButton } from "./OdooConnectionStatus";
 import { useApp } from "@/contexts/AppContext";
 import type { Section } from "@/lib/types";
+import { MA2FMark } from "@/components/MA2FMark";
 import {
   LayoutDashboard,
   Factory,
@@ -44,7 +46,7 @@ import {
   IdCard,
   Handshake,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -132,13 +134,16 @@ function NavButton({
   item,
   active,
   onClick,
+  buttonRef,
 }: {
   item: NavItem;
   active: boolean;
   onClick: () => void;
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       className={`group relative w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-md text-[13px] font-medium transition-colors duration-150 ${
         active
@@ -160,9 +165,27 @@ function NavButton({
 export default function AppSidebar() {
   const { currentUser, currentSection, setCurrentSection, logout, allowedSections, syncStatus, lastSyncTime, syncNow } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 1024px)").matches,
+  );
+  const mobileToggleRef = useRef<HTMLButtonElement>(null);
+  const firstNavItemRef = useRef<HTMLButtonElement>(null);
+  const previousMobileOpen = useRef(false);
   const [syncing, setSyncing] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["Rapports & Admin"]));
+
+  useEffect(() => {
+    const desktopMedia = window.matchMedia("(min-width: 1024px)");
+    const updateDesktopState = (event: MediaQueryListEvent) =>
+      setIsDesktop(event.matches);
+
+    setIsDesktop(desktopMedia.matches);
+    desktopMedia.addEventListener("change", updateDesktopState);
+    return () => desktopMedia.removeEventListener("change", updateDesktopState);
+  }, []);
 
   const handleSyncNow = async () => {
     if (syncing) return;
@@ -203,12 +226,55 @@ export default function AppSidebar() {
     setMobileOpen(false);
   };
 
+  const toggleMobileNavigation = () => {
+    setMobileOpen((open) => !open);
+  };
+
+  const handleMobileToggleKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    toggleMobileNavigation();
+  };
+
+  useEffect(() => {
+    if (mobileOpen === previousMobileOpen.current) return;
+
+    if (mobileOpen) {
+      firstNavItemRef.current?.focus();
+    } else {
+      mobileToggleRef.current?.focus();
+    }
+    previousMobileOpen.current = mobileOpen;
+  }, [mobileOpen]);
+
+  const firstVisibleItemId =
+    visibleGroups[0]?.items[0]?.id ?? visibleUngroupedItems[0]?.id;
+  const mobileSidebarHidden = !isDesktop && !mobileOpen;
+
   return (
     <>
+      {!mobileOpen && (
+        <div
+          className="lg:hidden fixed left-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg border border-sidebar-border bg-sidebar px-1 pb-1.5 shadow-lg"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
+        >
+          <OdooConnectionButton />
+        </div>
+      )}
       {/* Mobile toggle */}
       <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 bg-sidebar text-white shadow-lg rounded-lg p-2 border border-sidebar-border"
+        ref={mobileToggleRef}
+        onClick={toggleMobileNavigation}
+        onKeyDown={handleMobileToggleKeyDown}
+        aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={mobileOpen}
+        aria-controls="app-sidebar"
+        style={{ top: "calc(var(--odoo-status-height, 0px) + 1rem)" }}
+        className={`lg:hidden fixed z-50 bg-sidebar text-white shadow-lg rounded-lg p-2 border border-sidebar-border transition-[left] duration-200 ${
+          mobileOpen ? "left-[13rem]" : "left-4"
+        }`}
       >
         {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
@@ -223,7 +289,11 @@ export default function AppSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40 flex flex-col transition-transform duration-200 ease-out ${
+        id="app-sidebar"
+        aria-hidden={mobileSidebarHidden}
+        inert={mobileSidebarHidden}
+        style={{ top: "var(--odoo-status-height, 0px)", height: "calc(100% - var(--odoo-status-height, 0px))" }}
+        className={`fixed left-0 w-64 bg-sidebar border-r border-sidebar-border z-40 flex flex-col transition-transform duration-200 ease-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -231,11 +301,7 @@ export default function AppSidebar() {
         <div className="px-4 py-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#2d6488] to-[#4a90bf] flex items-center justify-center shadow-sm ring-1 ring-white/10">
-              <img
-                src="/manus-storage/ma2f-logo_ef99502d.png"
-                alt="MA2F"
-                className="w-6 h-6 object-contain"
-              />
+              <MA2FMark className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-[15px] font-semibold text-white tracking-tight leading-tight">MA2F</h1>
@@ -254,6 +320,7 @@ export default function AppSidebar() {
                   item={item}
                   active={currentSection === item.id}
                   onClick={() => handleNav(item.id)}
+                    buttonRef={item.id === firstVisibleItemId ? firstNavItemRef : undefined}
                 />
               ))}
             </div>
@@ -284,6 +351,7 @@ export default function AppSidebar() {
                         item={item}
                         active={currentSection === item.id}
                         onClick={() => handleNav(item.id)}
+                        buttonRef={item.id === firstVisibleItemId ? firstNavItemRef : undefined}
                       />
                     ))}
                   </div>
@@ -315,6 +383,7 @@ export default function AppSidebar() {
               <RefreshCw className={`w-3.5 h-3.5 text-sidebar-foreground/50 ${syncing || syncStatus === "syncing" ? "animate-spin" : ""}`} />
             </button>
           </div>
+          <OdooConnectionButton />
         </div>
 
         {/* Dark mode toggle */}

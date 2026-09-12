@@ -6,6 +6,143 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
+September 12 source reconciliation: Replit's active app is `ma2f-next/`.
+Preserve its newer MA2FMark/mobile navigation; these and five UI tests now exist
+locally. Thirteen reviewed connector/queue/test/status files were merged remotely
+with hash guards and backups. Do not overwrite the remote dependency graph with
+the local lockfile. Both environments passed TypeScript, UI checks and production
+builds; local focused order/production/client tests passed 14/14. Current release
+and commissioning gates are in `docs/MIGRATION-CURRENT-STATUS.md`, which supersedes
+historical session notes below. Production already exposes native account setup
+for commissioning; Firebase remains the main business login and data source.
+Development auth/runtime/order/production flags are false; do not infer production
+flags from development. The native order API is still gated and creates drafts only.
+Aquasachets release `fe6e2129-465d-4664-bea3-e59af0e480ba` is published;
+September 12 public checks passed at about 19:05 UTC: app/health 200, Odoo
+reachable, order route 503 `orders_not_enabled`, anonymous native profile 401.
+No production database copy or business activation was performed.
+
+Community Replit deployment (2026-09-10): the six pinned OCA modules are installed
+in production; backup and isolated restore passed, and all historical/business,
+user and integration digests were preserved. `community_sources.py` verifies
+archive/tree hashes without relying on nested Git metadata. Preserve Replit's
+newer development startup fixes. See `docs/COMMUNITY-REPLIT-DEPLOYMENT.md` for
+actual build verification and remaining commissioning. Installing these modules
+does not enable the MA2F business gateway, remove Firebase, configure audit rules
+or authorize an inferred tax rate.
+
+### Community-first architecture requirement (2026-09-10)
+
+The complete 37-section implementation decision map is in
+`docs/MA2F-COMMUNITY-CAPABILITY-MAP.md`. Consult it before adding business logic:
+it distinguishes native configuration, candidate OCA modules, residual MA2F work,
+and last-verified deployed status. OCA manifests verified by the audit are not
+installation or production acceptance evidence.
+
+Community pilot follow-up: `pilot/community_prepare.py` fetches the exact OCA
+commits in `pilot/community-addons.lock.json`; `pilot/community_test.py` installs
+and tests them in a separate local database. See `docs/COMMUNITY-PILOT-RESULTS.md`
+for executed results and limitations. These extensions were deployed on September 10;
+see `docs/COMMUNITY-REPLIT-DEPLOYMENT.md` for the production evidence.
+The 17-check native acceptance includes net production, partial delivery/return,
+negative-stock rejection, quality outcomes, audit and actual ledger/XLSX output.
+The four selected upstream suites passed 94 tests in a fresh database (zero failures
+or errors). `pilot/community-verification.json` records the evidence summary.
+
+User requires maximum reuse of self-hosted Odoo Community functionality without
+paid Odoo subscriptions or mandatory paid-service dependencies. Before implementing
+each MA2F business capability, assess standard Community configuration first, then
+maintained open-source OCA/other addons (verify license, Odoo 19 compatibility,
+dependencies and upgrade support). Write custom business logic only for documented
+gaps. Prefer native Odoo records, workflows, permissions and reports; the custom
+MA2F layer should mainly provide UX and a small authenticated, idempotent adapter.
+Keep extensions separate from upstream Odoo source. Do not infer that a Community
+addon has no paid external service dependencies simply because its code is public.
+No Enterprise, Studio, proprietary paid addons, or metered integrations without an
+explicit user decision. Existing authorized Replit infrastructure charges remain
+separate from software licensing. Reassess prepared custom components before
+deployment; temporary history models are migration aids, not the final business
+system. Preserve the existing single-user direct Odoo access constraint unless the
+user changes it; using native Odoo permissions behind MA2F does not require exposing
+the Odoo administrative interface to all users.
+
+### Self-hosted identity decision (2026-09-09)
+
+September 10 update: native authentication commissioning and native-session Odoo
+diagnostics are published, but source business profiles remain inactive and the main
+application still uses Firebase. The user requires historical transactions in Odoo;
+tax mapping must not be guessed. Runtime state/client APIs and the native `ma2f_core`
+production addon are prepared and tested in isolation, not enabled in production.
+See `docs/FIREBASE-EXIT.md` for verified scope and remaining cutover work.
+
+Odoo now contains a read-only historical sales model `x_ma2f_sale_history`, maintained
+by `deployment/odoo-core/import_sales_history.py`, with stable source IDs, hashes and
+original JSON. It is displayed under Sales > Historique des ventes MA2F (action 542).
+Its 1,048 records are source history, not native orders or posted invoices; do not
+count this import as completed accounting or stock migration. Native metadata and
+views live in PostgreSQL, and require registry signaling after maintenance commits.
+
+`deployment/odoo-core/setup_real_data_navigation.py` configures a real-data landing
+page and native pivot/graph reports over that preserved history, disables synthetic
+empty-state samples through inherited views, and unpublishes the four built-in
+spreadsheet template dashboards. It stores previous settings under
+`ma2f_navigation.before.*` and supports transactional preview/apply. It does not
+create native orders, activate live synchronization, or post accounting/stock.
+
+Draft-order preparation: `ma2f_core/models/orders.py` adds bounded, idempotent
+`record_order` with native included-tax and XOF pricelist validation. It creates
+only `sale.order` drafts, with exact gross totals and no stock or accounting moves.
+`server/orderRoutes.ts` mounts `/api/odoo-orders` in the built Express server, gated
+by native-auth/runtime/order flags (all must be enabled); its worker uses native
+account authorization and operation-filtered queue claims. `orderWorker.ts` verifies
+receipts before reporting completion. This code is LOCAL, not deployed/commissioned.
+The Firebase frontend has no call to it. Actual tax and pricelist configuration,
+native account activation, runtime database and final cutover are still required.
+Test runner: `node --import tsx --test tests/orderRoutes.test.mjs tests/orderWorker.test.mjs tests/productionWorker.test.mjs`;
+native isolated test: Ubuntu WSL `python3 pilot/run_core_order_test.py` after
+`python3 pilot/core_test.py upgrade`. The 18% native test fixture is fictional and
+must never be used as the production tax decision.
+
+Recorded sale totals are tax-inclusive per the user; the rate is pending and historical
+invoice posting is deferred. Preserve amounts exactly. `server/productionWorker.ts`
+is an internal production-only queue worker with a separate command credential,
+authorization callback and receipt validation. It has no startup registration and
+must not be treated as a commissioned live integration.
+
+The user chose accounts and sessions inside the Replit backend/PostgreSQL instead of
+the prepared Clerk target. See `docs/FIREBASE-EXIT.md`. Better Auth 1.7.3 is prepared
+under `server/localAuth*`, disabled by default and isolated in the `ma2f_auth` schema.
+The commissioning profile never grants business access. Firebase remains the live
+application backend; Clerk and Firebase removal requires the documented cutover
+checks. `server/productionPlan.ts` preserves net packs and source-based estimated
+plastic consumption without writing inventory. None of this is a live Odoo writer.
+
+Production preparation now includes the restricted PostgreSQL auth role, native
+session persistence/logout tests, and five reviewed profiles imported without
+passwords or activation (one quarantine record remains separate). Replit project
+Secrets are prepared with auth disabled. Native recovery tests verify token expiry,
+single use and session revocation; delivery and live browser enrolment remain pending.
+`scripts/export_firestore_snapshot.py` exports all root/nested collections at a fixed
+read time; `scripts/archive_firestore_snapshot.mjs` preserves and verifies the original
+bytes plus typed records. These are private source archives, not operational imports.
+`scripts/privateArchiveTransfer.ts` is an opt-in temporary development receiver; its
+registration and one-time credential must be removed after each transfer. It is not
+part of normal application startup. See `docs/FIREBASE-EXIT.md` for verified results.
+
+### Isolated Odoo Community pilot (2026-09-07)
+
+`pilot/` is a local-only migration pilot, independent from the current React/Firebase application. See `pilot/README.md`, `pilot/VERIFICATION.md` and the migration audit in `docs/`. It provides pinned Odoo 19/PostgreSQL Docker services, a fictional MA2F sachet fixture, a read-only integration account and a separate bounded HTTP gateway. Generated secrets and runtime reports are under ignored `pilot/.local/`. Commands: `python pilot/manage.py prepare`, `init`, `up`, `check`, `scenario`, `stop`, `status`. Gateway tests: `python -m unittest discover -s pilot/gateway -p "test_*.py" -v`. Actual runtime validation is recorded in the verification document; file presence does not prove a running deployment.
+
+Do not connect this pilot to production Firebase, import real data, expose its static test tokens in a browser, or treat the fictional BOM as a production recipe. The existing app remains authoritative until an explicit migration cutover. Separate frontends and production Firebase identity enforcement are not implemented. Backend work takes precedence; the user deferred interface work.
+
+The second backend increment adds `ma2f_pilot_commands`, a single opt-in production command, a separate writer identity, strict shared input validation and an Odoo transactional request ledger. See `pilot/PRODUCTION-API.md`. Writes default to disabled; native acceptance tests (`commands-test`) must pass before `enable-production`, with a matching addon fingerprint. Use `upgrade` for an existing initialized pilot and `disable-production` to close writes. Neither concurrency nor actual Odoo execution is claimed as verified until recorded in `pilot/VERIFICATION.md`.
+
+The third increment runs the actual pinned Odoo image under Ubuntu WSL (Docker Desktop is still broken). Use `powershell -NoProfile -File pilot/manage-wsl.ps1 <action>` on this workstation; the wrapper uses Ubuntu's native Docker and manages its own hidden WSL keepalive. A pinned Nginx ingress owns loopback ports, while the business services remain on the internal network. Generic Odoo APIs/database-manager paths are denied on the admin ingress; JSON-2 integration is internal. Native stock, production permission/rollback, purchase-to-cash including credit note, lot/expiry/scrap, concurrent real HTTP, and backup/restore tests have passed; see `pilot/VERIFICATION.md`. Added actions: `business-test`, `lots-test`, `live-test`, `backup-test`. The live test commits fictional records; backup-test retains SQL/filestore archives and a separate neutralized restore database. Writes are disabled at completion. Production identity, actual MA2F business contracts, frontend integration and real migration remain pending. The native manufacturing fix lets Odoo compute finished quantities on closure instead of prematurely marking them produced.
+
+Confirmed MA2F production rule (2026-09-07): one pack contains 30 sachets; entered production is saleable packs AFTER manufacturing rejects have been removed. Never subtract manufacturing rejects twice from that net stock. See `pilot/MA2F-BUSINESS-RULES.md` and tested pure conversion `pilot/ma2f_quantities.py`. The historical HTTP command still takes sachet units; the new `/v1/ma2f/production` route accepts net saleable packs and rejected sachets, and commits native gross manufacturing plus scrap atomically. `/v1/ma2f/stock` reads factory on-hand/reserved/available quantities and full packs plus loose units. `pilot/ma2f_client.py` is a trusted backend transport with no Firebase fallback; `pilot/ma2f.py` stores request UUIDs before submission. See `pilot/MA2F-PRODUCTION-STOCK.md`. The pack route has passed native rollback/permissions checks and real concurrent HTTP tests (`packs-live-test`). Screens and Firebase identity are not connected. The user explicitly deferred selecting the Odoo administrator email. Historical records require unit reconciliation before migration.
+
+Replit migration requested (2026-09-07): the user explicitly wants the NEW local MA2F/Odoo version to replace the old Replit project at https://replit.com/@Mamdou025/Aquasachets, eventually removing Firebase while preserving the same business users and permissions. Root `.replit`, `vite.replit.config.ts`, `dev:replit`/`build:replit`, and `/healthz` prepare the transitional web runtime; these do NOT migrate Firebase or deploy Odoo. Replit-specific Vite omits Manus plugins. Keep separate stable/free/Odoo deployments. Production filesystem persistence and actual Odoo/Postgres compatibility must be tested remotely. Read `docs/REPLIT-MIGRATION.md` and `replit.md`. The new source is installed in Replit under ma2f-next; its workflow uses port 5000. Installation, TypeScript, build and 32 pilot contract tests passed remotely. The previous published app remains unchanged. Firebase accounts/data and Odoo are not migrated.
+
 MA2F AquaSachet — commercial management app for a water-sachet production/sales business operating in **Dakar, Senegal** (OHADA context — Senegal is an OHADA member state; the earlier "Cameroon" framing in this file was incorrect and has been corrected as of 2026-08-01). Evidence: `ClientsSection.tsx` hardcodes the map default center on Dakar (`CENTRE_DAKAR`) and scopes all client-zone geocoding to `"<zone>, Dakar, Sénégal"`; `ideas.md` explicitly describes MA2F as a tool "pour les PME de production d'eau en sachets au Sénégal". Zone examples used in the app (e.g. "Pikine") are Dakar neighborhoods, not Cameroonian ones. Covers production, sales, clients, sales reps (commerciaux), delivery drivers (livreurs), salaried staff (employés), expenses, cash register (caisse), receivables/debt collection, deliveries, maintenance, vehicles, accounting (SYSCOHADA export), and reporting. ~23 400 lines TypeScript/React across 29 business modules.
 
 Firebase project: `ma2f-aquasachet` (account `ziza220@gmail.com`).
@@ -24,7 +161,7 @@ pnpm check           # tsc --noEmit (typecheck only, no test runner configured)
 pnpm format          # prettier --write .
 ```
 
-There is **no test script** and **no test files** exist (`vitest` is a devDependency but unused — `client/src/lib/tests-calculs.ts` is a runtime helper, not an automated test). If you add tests, add a `test` script and use vitest.
+There is **no frontend test script** (`client/src/lib/tests-calculs.ts` is a runtime helper, not an automated test). The unused Vitest 2 dependency was removed after Replit rejected its download. Pilot Python tests are under `pilot/gateway`. If adding frontend tests, install a supported test runner and add a `test` script.
 
 Cloud Functions (separate package, `functions/`):
 ```bash
@@ -256,3 +393,15 @@ Câblage standard (comme tout nouveau module) : `Section` type + interfaces (`ty
 - `FIRESTORE-SECURITY.md` — how to deploy Firestore rules and set custom claims (`set-claims.mjs` script pattern), plus the collection → allowed-writer-role table.
 - `GUIDE_SAUVEGARDE_GOOGLE_DRIVE.md` / `GUIDE_VERIFICATION_SAUVEGARDE_DRIVE.md` — Google Drive backup setup/verification.
 - `ideas.md` — informal backlog/notes.
+
+Identity migration preparation (2026-09-08): scripts/identity_migration.py performs offline reconciliation only, with 16 tests in scripts/test_identity_migration.py. Preserve per-action permissions as well as allowedSections, roles and active state. Discrepancies block the report; even reconciled reports never activate accounts or grant Odoo access. Private inputs/reports belong in ignored migration-private/. See docs/IDENTITY-MIGRATION.md. The user explicitly selected Replit-managed Clerk and deferred MFA. Provisioning without MFA is authorized; preserve historical MFA requirements for later restoration. Do not switch the Firebase business login before identity/data reconciliation.
+
+Clerk setup in Replit (2026-09-08): managed Development and Production tenants were provisioned through Replit's native setup. The new ma2f-next remote source now includes a separate /clerk-verification page and /clerk-sign-in route using official Clerk SDKs. These remote code changes have not yet been synchronized into this local checkout. Do not overwrite Replit with a fresh full local source export until the remote Clerk changes are reconciled. Firebase business authentication remains active; no real users have been imported and no Clerk-to-Firebase token bridge is authorized. The dedicated GET /api/clerk-verification now scopes official Clerk validation in Vite and Express, refuses absent/malformed tokens with 401 JSON, and returns no business/Odoo grants for verified sessions. Remote check/build and both runtime negative-authentication matrices passed; the successful-session branch still needs testing after an authorized user is provisioned. No publication was performed by this setup.
+
+Clerk profile recognition added: see docs/IDENTITY-MIGRATION.md. server/clerkProfile.ts and tests/clerkProfile.test.mjs are mirrored locally; live handler/page changes remain in Replit. Fourteen resolver tests and Vite/Express negative HTTP checks passed there. Real administrator browser login passed after the user signed in; business access remains disabled. Do not overwrite remote Clerk changes from this older local checkout.
+
+MA2F data source copied into Replit PostgreSQL ma2f_migration staging: 11178 documents from 20 root collections, verified by full readback and idempotent rerun. See docs/DATA-MIGRATION-REPLIT.md. Operational schema/conversion, subcollections, files, delta sync and cutover remain pending. Vite denies migration-private files. Firebase remains authoritative.
+
+Customer/order conversion candidates loaded in Replit ma2f_next (218 clients, 213 orders), full readback and idempotent rerun verified, six tests passed. 95 missing client references and 11 duplicate number groups remain in review; no inferred link applied. DDL mirrored locally; preparation/import/test scripts still require remote source reconciliation. See docs/DATA-MIGRATION-REPLIT.md. These are inactive migration tables, not an alternative custom Odoo core.
+
+Finance/stock candidates verified in Replit: 1017 sales, 148 recoveries, 628 stock movements, 48 production records. Actual legacy-function parity verified for all sales and five calculable stock positions. Review: 29 unmatched recoveries (327250 FCFA), 83 movements missing units/endpoints, 14 sales missing numbers. No accounting/stock postings or business activation. See docs/DATA-MIGRATION-REPLIT.md; new scripts remain remote pending source reconciliation.

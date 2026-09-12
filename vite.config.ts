@@ -1,4 +1,7 @@
 import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
+import { odooHealthPlugin } from "./server/odooHealthPlugin";
+import { localAuthPlugin } from "./server/localAuthPlugin";
+import { odooIntegrationPlugin } from "./server/odooIntegrationPlugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
@@ -203,7 +206,7 @@ function vitePluginStorageProxy(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
+const plugins = [localAuthPlugin(), odooHealthPlugin(), odooIntegrationPlugin(), react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
 
 export default defineConfig({
   plugins,
@@ -235,7 +238,8 @@ export default defineConfig({
     ],
     fs: {
       strict: true,
-      deny: ["**/.*"],
+      // Allow runtime packages only inside node_modules/.pnpm.
+      deny: ["**/.*", "**/.!(pnpm)/**", "**/!(node_modules)/.pnpm/**", "**/pilot/.local/**", "**/migration-private/**"],
     },
   },
 });

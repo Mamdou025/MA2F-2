@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pilot_quant,MA2F quantities read,stock.model_stock_quant,group_pilot_reader,1,0,0,0
+access_pilot_location,MA2F locations read,stock.model_stock_location,group_pilot_reader,1,0,0,0
+access_pilot_lot,MA2F lots read,stock.model_stock_lot,group_pilot_reader,1,0,0,0

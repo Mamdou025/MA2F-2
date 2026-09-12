@@ -127,3 +127,10 @@ index.lock*
 il.[0-9]*
 _tmp_*
 _to_delete/
+
+# Isolated Odoo pilot: generated secrets, runtime reports and Python caches
+pilot/.local/
+**/__pycache__/
+
+# Private account reconciliation inputs and reports (never transferred to Replit source).
+migration-private/

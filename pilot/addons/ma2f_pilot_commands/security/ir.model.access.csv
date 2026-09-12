@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pilot_operation,MA2F own operation read,model_ma2f_pilot_operation,group_pilot_writer,1,0,0,0

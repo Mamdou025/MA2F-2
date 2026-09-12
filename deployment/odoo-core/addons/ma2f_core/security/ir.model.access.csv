@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_operation_gateway,MA2F gateway ledger,model_ma2f_core_operation,group_gateway,1,0,0,0
+access_operation_admin,MA2F administrator ledger,model_ma2f_core_operation,base.group_system,1,0,0,0
+access_gate_admin,MA2F administrator serialization status,model_ma2f_core_gate,base.group_system,1,0,0,0
