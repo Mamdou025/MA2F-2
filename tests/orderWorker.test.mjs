@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {orderDispatcher,runOrderOnce,validateOrderPayload} from '../server/orderWorker.ts';
 import {CommandOutbox} from '../server/commandOutbox.ts';
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const p={customerId:7,packs:7,unitPriceIncludedFCFA:600,taxId:4};
+const p={customerId:7,packs:7,unitPriceFCFA:600};
 const job={requestId:id,actorId:'actor_1',operation:'order',payload:p,lease:'lease',attempts:1};
 const env={MA2F_ODOO_ORDERS_ENABLED:'true',ODOO_COMMAND_API_KEY:'test-key',ODOO_DATABASE:'ma2f_odoo',ODOO_COMPANY_ID:'1',ODOO_BASE_URL:'https://odoo.example.invalid'};
-const receipt={requestId:id,orderId:42,orderName:'S00042',state:'draft',...p,totalIncludedFCFA:4200,stockReserved:false,invoicePosted:false,replayed:false};
+const receipt={requestId:id,orderId:42,orderName:'S00042',state:'draft',...p,totalFCFA:4200,stockReserved:false,invoicePosted:false,replayed:false};
 function queue(){const calls=[];return {calls,claim:async op=>{assert.equal(op,'order');return structuredClone(job);},complete:async(...a)=>calls.push(['complete',...a]),uncertain:async(...a)=>calls.push(['uncertain',...a]),review:async(...a)=>calls.push(['review',...a])};}
 test('order transport fixes destination and validates receipt, bounds and flags',async()=>{
  let writes=0;
@@ -14,9 +14,9 @@ test('order transport fixes destination and validates receipt, bounds and flags'
  assert.deepEqual(await orderDispatcher(env,send)(job),receipt);
  for(const patch of [{MA2F_ODOO_ORDERS_ENABLED:'false'},{ODOO_COMMAND_API_KEY:''},{ODOO_DATABASE:'other'},{ODOO_COMPANY_ID:'2'}])await assert.rejects(orderDispatcher({...env,...patch},send)(job));
  assert.equal(writes,1);
- for(const patch of [{requestId:'wrong'},{totalIncludedFCFA:4201},{state:'sale'},{stockReserved:true},{invoicePosted:true},{orderId:0},{taxId:9},{customerId:8}])await assert.rejects(orderDispatcher(env,async()=>Response.json({...receipt,...patch}))(job),/UNCONFIRMED/);
+ for(const patch of [{requestId:'wrong'},{totalFCFA:4201},{state:'sale'},{stockReserved:true},{invoicePosted:true},{orderId:0},{taxId:9},{customerId:8}])await assert.rejects(orderDispatcher(env,async()=>Response.json({...receipt,...patch}))(job),/UNCONFIRMED/);
  await assert.rejects(orderDispatcher(env,async()=>new Response('x'.repeat(20000)))(job),/UNCONFIRMED/);
- for(const value of [{...p,packs:true},{...p,packs:0},{...p,unitPriceIncludedFCFA:1.5},{...p,companyId:1},null])assert.throws(()=>validateOrderPayload(value),/INVALID/);
+ for(const value of [{...p,packs:true},{...p,packs:0},{...p,unitPriceFCFA:1.5},{...p,companyId:1},{...p,taxId:4},{customerId:7,packs:7,unitPriceIncludedFCFA:600},null])assert.throws(()=>validateOrderPayload(value),/INVALID/);
 });
 test('lost order response retries same UUID; never treats a timeout as success',async()=>{
  const q=queue();let created=0;const commands=[];

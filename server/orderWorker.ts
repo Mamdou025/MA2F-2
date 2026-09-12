@@ -5,10 +5,10 @@ type Job = NonNullable<Awaited<ReturnType<CommandOutbox['claim']>>>;
 type Queue = Pick<CommandOutbox,'claim'|'complete'|'uncertain'|'review'>;
 export function validateOrderPayload(value:unknown){
   const p=value as Record<string,unknown>;
-  if(!p||Object.getPrototypeOf(p)!==Object.prototype||Object.keys(p).sort().join(',')!=='customerId,packs,taxId,unitPriceIncludedFCFA')throw Error('INVALID_ORDER');
-  for(const [key,max] of [['customerId',2147483647],['packs',100000],['taxId',2147483647],['unitPriceIncludedFCFA',1000000]] as const)
+  if(!p||Object.getPrototypeOf(p)!==Object.prototype||Object.keys(p).sort().join(',')!=='customerId,packs,unitPriceFCFA')throw Error('INVALID_ORDER');
+  for(const [key,max] of [['customerId',2147483647],['packs',100000],['unitPriceFCFA',1000000]] as const)
     if(!Number.isSafeInteger(p[key])||(p[key] as number)<1||(p[key] as number)>max)throw Error('INVALID_ORDER');
-  return p as {customerId:number;packs:number;taxId:number;unitPriceIncludedFCFA:number};
+  return p as {customerId:number;packs:number;unitPriceFCFA:number};
 }
 
 /** Fixed draft-order RPC. Does not confirm, invoice, or reserve stock. */
@@ -33,12 +33,12 @@ export function orderDispatcher(env:NodeJS.ProcessEnv=process.env,fetcher:typeof
         if(size>16384){await reader.cancel();throw Error('ODOO_RESULT_UNCONFIRMED');}chunks.push(value);}}
       finally{reader.releaseLock();}
       const r=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      if(!r||r.requestId!==job.requestId||r.customerId!==p.customerId||r.packs!==p.packs||r.taxId!==p.taxId||
-        r.unitPriceIncludedFCFA!==p.unitPriceIncludedFCFA||r.totalIncludedFCFA!==p.packs*p.unitPriceIncludedFCFA||
+      if(!r||r.requestId!==job.requestId||r.customerId!==p.customerId||r.packs!==p.packs||Object.hasOwn(r,'taxId')||
+        r.unitPriceFCFA!==p.unitPriceFCFA||r.totalFCFA!==p.packs*p.unitPriceFCFA||
         !Number.isSafeInteger(r.orderId)||r.orderId<=0||typeof r.orderName!=='string'||!r.orderName.trim()||
         r.state!=='draft'||r.stockReserved!==false||r.invoicePosted!==false||typeof r.replayed!=='boolean')throw Error('ODOO_RESULT_UNCONFIRMED');
       return {requestId:r.requestId,orderId:r.orderId,orderName:r.orderName,state:'draft',...p,
-        totalIncludedFCFA:r.totalIncludedFCFA,stockReserved:false,invoicePosted:false,replayed:r.replayed};
+        totalFCFA:r.totalFCFA,stockReserved:false,invoicePosted:false,replayed:r.replayed};
     }finally{clearTimeout(timer);}
   };
 }

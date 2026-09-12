@@ -1,4 +1,4 @@
-"""Create native draft orders only, with explicit included-tax configuration."""
+"""Create native draft orders only, without tax calculation; taxes are managed outside Odoo."""
 import hashlib
 import json
 import re
@@ -19,7 +19,7 @@ class OrderOperation(models.Model):
         config = self.env['ir.config_parameter'].sudo()
         if config.get_param('ma2f.integration.orders_enabled') != 'true':
             raise AccessError('MA2F_ORDERS_DISABLED')
-        keys = {'requestId', 'actorId', 'customerId', 'packs', 'unitPriceIncludedFCFA', 'taxId'}
+        keys = {'requestId', 'actorId', 'customerId', 'packs', 'unitPriceFCFA'}
         if not isinstance(command, dict) or set(command) != keys:
             raise ValidationError('MA2F_INVALID_ORDER')
         request_id, actor = command['requestId'], command['actorId']
@@ -27,7 +27,7 @@ class OrderOperation(models.Model):
             raise ValidationError('MA2F_INVALID_REQUEST_ID')
         if not isinstance(actor, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', actor):
             raise ValidationError('MA2F_INVALID_ACTOR')
-        for key, maximum in [('packs',100000), ('unitPriceIncludedFCFA',1000000), ('customerId',2147483647), ('taxId',2147483647)]:
+        for key, maximum in [('packs',100000), ('unitPriceFCFA',1000000), ('customerId',2147483647)]:
             if type(command[key]) is not int or not 1 <= command[key] <= maximum:
                 raise ValidationError('MA2F_INVALID_ORDER')
         fingerprint = hashlib.sha256(json.dumps(command,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -42,12 +42,8 @@ class OrderOperation(models.Model):
             return dict(existing.result,replayed=True)
         if config.get_param('ma2f.integration.sachets_per_pack') != '30':
             raise UserError('MA2F_PACK_CONFIGURATION_REQUIRED')
-        # Never infer a zero rate or add tax on top of the recorded price.
-        if config.get_param('ma2f.integration.sale_tax_id') != str(command['taxId']):
-            raise UserError('MA2F_TAX_CONFIGURATION_REQUIRED')
         native = self.sudo().env
         customer = native['res.partner'].browse(command['customerId']).exists()
-        tax = native['account.tax'].browse(command['taxId']).exists()
         pack = native.ref('ma2f_integration.finished_pack')
         currency = native.company.currency_id
         pricelist_key = config.get_param('ma2f.integration.sale_pricelist_id') or ''
@@ -58,8 +54,6 @@ class OrderOperation(models.Model):
             raise UserError('MA2F_PRICELIST_CONFIGURATION_REQUIRED')
         if not customer or not customer.active or customer.company_id.id != 1 or customer.type != 'contact' or customer.customer_rank < 1:
             raise UserError('MA2F_CUSTOMER_MAPPING_REQUIRED')
-        if not tax or not tax.active or tax.company_id.id != 1 or tax.type_tax_use != 'sale' or tax.amount_type != 'percent' or not tax.price_include or not 0 < tax.amount <= 100 or tax.include_base_amount:
-            raise UserError('MA2F_TAX_CONFIGURATION_REQUIRED')
         if currency.name != 'XOF' or currency.rounding != 1 or pack.company_id.id != 1 or not pack.active or not pack.sale_ok or pack.uom_id != native.ref('uom.product_uom_unit'):
             raise UserError('MA2F_UNSUPPORTED_ORDER_CONFIGURATION')
         with self.env.cr.savepoint():
@@ -67,12 +61,12 @@ class OrderOperation(models.Model):
             order = native['sale.order'].with_context(tracking_disable=True,mail_create_nolog=True,mail_create_nosubscribe=True).create({
                 'partner_id':customer.id,'company_id':1,'pricelist_id':pricelist.id,'origin':'MA2F '+request_id,
                 'order_line':[Command.create({'product_id':pack.id,'product_uom_qty':command['packs'],
-                    'price_unit':command['unitPriceIncludedFCFA'],'discount':0,'tax_ids':[Command.set(tax.ids)]})]})
-            expected = command['packs'] * command['unitPriceIncludedFCFA']
-            if order.state != 'draft' or order.currency_id != currency or order.amount_total != expected or order.order_line.tax_ids != tax or order.picking_ids or order.invoice_ids:
+                    'price_unit':command['unitPriceFCFA'],'discount':0,'tax_ids':[Command.clear()]})]})
+            expected = command['packs'] * command['unitPriceFCFA']
+            if order.state != 'draft' or order.currency_id != currency or order.amount_total != expected or order.order_line.tax_ids or order.amount_tax != 0 or order.picking_ids or order.invoice_ids:
                 raise UserError('MA2F_ORDER_TOTAL_OR_STATE_MISMATCH')
             result = {'requestId':request_id,'orderId':order.id,'orderName':order.name,'state':'draft',
-                'customerId':customer.id,'packs':command['packs'],'unitPriceIncludedFCFA':command['unitPriceIncludedFCFA'],
-                'totalIncludedFCFA':expected,'taxId':tax.id,'stockReserved':False,'invoicePosted':False,'replayed':False}
+                'customerId':customer.id,'packs':command['packs'],'unitPriceFCFA':command['unitPriceFCFA'],
+                'totalFCFA':expected,'stockReserved':False,'invoicePosted':False,'replayed':False}
             operation.write({'order_id':order.id,'result':result})
             return result

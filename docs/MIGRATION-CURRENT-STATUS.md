@@ -233,3 +233,14 @@ Business rules remain: sachets only, 30 sachets per pack, production measured as
 saleable packs. Preserve source discrepancies; do not silently invent missing business data.
 
 Publication validation initially failed in the default managed `neondb` database: Replit could not alter `orm_signaling_registry`, owned by the restricted runtime role. The failed deployment was cancelled. The provisioning administrator was granted membership in `odoo_core_prod` so it can manage runtime-owned objects; the runtime role itself still has no superuser, database/role creation, replication or RLS bypass privilege. No business records or application account permissions were changed. The actual Odoo runtime target remains `ma2f_odoo`. Retry publication after this repair.
+# September 12 update: French and external taxes
+
+The owner confirmed that taxes are handled outside Odoo. Prior tax-rate gates
+in historical notes are superseded: do not configure tax parameters. The revised
+draft connector uses plain FCFA amounts and explicitly clears native line taxes.
+Local native rollback tests passed, including an inherited product tax fixture.
+French is installed and active for the human Odoo account. Live sales and purchase
+tax defaults were cleared, saved and verified blank. Existing product-specific
+tax assignments still need inspection. Source changes are not yet deployed;
+native order activation, current-data reconciliation and physical stock counts
+remain outstanding. See `ODOO-DRAFT-ORDER-CONNECTION.md`.

@@ -333,3 +333,8 @@ auth, change the existing MA2F login page or activate business access.
 References: https://better-auth.com/docs/integrations/express,
 https://better-auth.com/docs/concepts/database,
 https://better-auth.com/docs/reference/security.
+# September 12 owner decision
+
+Taxes are managed outside Odoo; all earlier tax-rate commissioning requirements
+below are superseded. The current draft connector takes plain FCFA amounts and
+no tax parameter. See `ODOO-DRAFT-ORDER-CONNECTION.md` for current status.

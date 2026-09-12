@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
+September 12 owner decision: taxes are handled outside Odoo. The draft-order
+contract uses `unitPriceFCFA` and `totalFCFA`, accepts no tax ID, explicitly clears
+native order-line taxes and requires zero native tax. Do not configure a tax rate
+or restore the retired tax parameters. Historical tax assumptions below are
+superseded. French is active for the human Odoo account. See
+`docs/ODOO-DRAFT-ORDER-CONNECTION.md` for remaining deployment gates.
+
 September 12 source reconciliation: Replit's active app is `ma2f-next/`.
 Preserve its newer MA2FMark/mobile navigation; these and five UI tests now exist
 locally. Thirteen reviewed connector/queue/test/status files were merged remotely

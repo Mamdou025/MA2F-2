@@ -35,9 +35,8 @@ export function orderRouter(env:NodeJS.ProcessEnv=process.env,deps?:{auth:LocalA
   },express.json({limit:'16kb',strict:true}),async(req,res)=>{
     try{
       const b=req.body;
-      if(!b||Object.keys(b).sort().join(',')!=='customerId,packs,requestId,unitPriceIncludedFCFA')throw Error('INVALID_ORDER');
-      if(!/^[1-9][0-9]{0,9}$/.test(env.MA2F_ODOO_SALE_TAX_ID||'')){res.status(503).json({error:'tax_configuration_required'});return;}
-      const payload=validateOrderPayload({customerId:b.customerId,packs:b.packs,unitPriceIncludedFCFA:b.unitPriceIncludedFCFA,taxId:Number(env.MA2F_ODOO_SALE_TAX_ID)});
+      if(!b||Object.keys(b).sort().join(',')!=='customerId,packs,requestId,unitPriceFCFA')throw Error('INVALID_ORDER');
+      const payload=validateOrderPayload({customerId:b.customerId,packs:b.packs,unitPriceFCFA:b.unitPriceFCFA});
       const actor=res.locals.ma2f.userId;
       if(!await authorize(actor)){res.status(403).json({error:'business_permission_required'});return;}
       const status=await queue.enqueue({requestId:b.requestId,actorId:actor,operation:'order',payload});
