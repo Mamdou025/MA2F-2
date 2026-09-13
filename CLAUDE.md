@@ -15,6 +15,11 @@ Pending references survive browser reloads for recovery. Deployment installs
 remain false. Production startup checks the separate `ODOO_COMMAND_USER_ID`.
 `scripts/provision_order_queue.mjs` provisions only queue permissions using a
 private production connection file. Never log generated credentials or tokens.
+Both Replit publications completed September 13: the draft gateway is enabled,
+but the owner's native password/setup and live draft/retry acceptance remain
+pending. `scripts/activate_order_profile.mjs` requires password readiness and
+preserves existing rights. Gateway key expiry is October 13, 2026; rotate before
+then. See the commissioning document for the exact deployment evidence.
 
 September 12 owner decision: taxes are handled outside Odoo. The draft-order
 contract uses `unitPriceFCFA` and `totalFCFA`, accepts no tax ID, explicitly clears

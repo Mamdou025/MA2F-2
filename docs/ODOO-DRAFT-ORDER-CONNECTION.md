@@ -1,4 +1,43 @@
-# Draft-order connection — prepared, not live
+# Draft-order connection — production commissioning
+
+## September 12–13 commissioning work
+
+The French `/api/odoo-orders/workspace` screen is linked from Commandes. It
+requires native MA2F authentication and preserved order permission. Its customer
+selector uses imported native Odoo contact IDs. A submitted request is retained
+per account in browser storage; recovery reuses the same UUID. This screen does
+not also create a Firebase order or confirm/reserve/deliver/invoice the Odoo draft.
+
+The addon installed successfully in the isolated database and passed the native
+rollback tests, including customer selection, exact no-tax totals and replay.
+Replit MA2F passed six focused tests, TypeScript and its production build; Odoo
+passed its deployment/access tests. Production addon installation preserved all
+existing business and identity records. The separate queue role passed actual
+SELECT/INSERT/UPDATE checks, denied DELETE, and rolled back its test row.
+
+Production backup: 14,581,565 bytes, SHA-256
+`fc6282904662bdb4015b80f4f0ad59190b0260db7600ac45b2c0fb80cd2620ed`.
+It contained 262 contacts and 1,048 imported history rows, with zero native sales,
+invoices, payments, stock movements/quants or manufacturing orders.
+
+Gateway identity 12 (`ma2f.orders`) is active with a separate key expiring
+October 13, 2026; rotate before expiry. No generic sale/account/stock/MRP write
+ACL is granted. The orders flag is enabled; stock/production remain disabled.
+Odoo publication `07482efe-e26b-4217-9249-980f8ef85ed5` and MA2F publication
+`21adab9e-c267-4a83-b56d-cd30a1358600` completed. Existing deployment sizing and
+databases were preserved; development database copying stayed unchecked.
+
+Live checks around September 13, 03:47 UTC: Odoo `/web/health` passes, MA2F
+`/api/healthz` reports alive, `/api/odoo-health` reports connected, the French
+workspace returns 200, and anonymous customer access returns 401. The dedicated
+gateway's native customer RPC returned 200 and 255 eligible customers with TLS
+verification enabled (Python requests needed the system CA bundle).
+
+The preserved human account still has no native password and remains inactive.
+A private setup page is open for the owner; no password may be chosen for them.
+After setup, apply `scripts/activate_order_profile.mjs` to that preserved account,
+have the owner sign in, and verify a draft request and retry. No live quotation
+has been created yet. These deployment checks are not end-to-end acceptance.
 
 ## Owner decision, September 12, 2026
 
@@ -24,13 +63,8 @@ ACL. Drafts do not reserve stock or post invoices/payments.
 
 ## Commissioning still required
 
-- Install the addon with durable production addon paths.
-- Provision the runtime queue database, activate verified native accounts with
-  preserved permissions, and finish native customer-ID mapping.
-- Configure a company-owned XOF `ma2f.integration.sale_pricelist_id`.
-- Commission the separate command credential and gated order flags. There is no
-  `MA2F_ODOO_SALE_TAX_ID` or `ma2f.integration.sale_tax_id` requirement.
-- Connect the frontend and verify an authenticated end-to-end request and retry.
+- Complete the owner's password setup and activate only the preserved account.
+- Verify an authenticated end-to-end request, exact no-tax total and retry.
   The current main business UI remains on Firebase.
 - Obtain physical factory/truck counts before stock cutover. Draft-order tests
   do not establish inventory readiness.

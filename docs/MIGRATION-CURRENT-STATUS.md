@@ -1,6 +1,20 @@
 # MA2F migration — current checkpoint
 
-## Current release checklist — September 12, 2026
+## Current checkpoint — September 13, 2026
+
+The draft-order addon, French workspace and restricted queue are deployed on
+both Replit applications. The order gateway is enabled; stock and production
+commands remain disabled. Live health, Odoo connectivity, customer RPC and
+anonymous-access checks passed. Account-holder password setup, preserved-account
+activation and a signed-in live draft/retry test remain incomplete. No live test
+quotation or stock/financial transaction has been created. Full business cutover
+is not complete. Taxes are handled outside Odoo and must not be configured.
+
+See `ODOO-DRAFT-ORDER-CONNECTION.md` for publication IDs, backup evidence and
+remaining acceptance steps. This checkpoint supersedes the older checklist,
+including its old disabled-order status and missing-tax claim.
+
+## Earlier release checklist — September 12, 2026
 
 This section supersedes the historical notes below. User authorization remains
 in the conversation; old checklist wording must not be used to ask again for
