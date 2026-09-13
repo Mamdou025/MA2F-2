@@ -1,0 +1,15 @@
+<odoo noupdate="1">
+  <!-- Inert setup only: neither order nor stock command flags are enabled. -->
+  <record id="order_gate" model="ma2f.core.gate">
+    <field name="company_id" ref="base.main_company"/>
+  </record>
+  <record id="order_pricelist" model="product.pricelist">
+    <field name="name">MA2F — Prix en FCFA</field>
+    <field name="company_id" ref="base.main_company"/>
+    <field name="currency_id" ref="base.XOF"/>
+  </record>
+  <record id="order_pricelist_parameter" model="ir.config_parameter">
+    <field name="key">ma2f.integration.sale_pricelist_id</field>
+    <field name="value" eval="str(ref('order_pricelist'))"/>
+  </record>
+</odoo>

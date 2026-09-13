@@ -16,11 +16,13 @@ try:
     pack.taxes_id=[Command.set([inherited_tax.id])]
     env['ir.model.data'].create({'module':'ma2f_integration','name':'finished_pack','model':pack._name,'res_id':pack.id})
     customer=env['res.partner'].create({'name':'Fictional order customer','company_id':1,'customer_rank':1})
+    env['ir.model.data'].create({'module':'ma2f_history','name':'customer_fictional_test','model':'res.partner','res_id':customer.id})
     pricelist=env['product.pricelist'].create({'name':'Fictional XOF price list','company_id':1,'currency_id':currency.id})
     params.set_param('ma2f.integration.sale_pricelist_id',str(pricelist.id))
-    env['ma2f.core.gate'].create({'company_id':1})
+    if not env['ma2f.core.gate'].search_count([('company_id','=',1)]):env['ma2f.core.gate'].create({'company_id':1})
     user=env['res.users'].with_context(no_reset_password=True).create({'name':'Fictional order gateway','login':'fictional_order_gateway','company_id':1,'company_ids':[Command.set([1])],'group_ids':[Command.set([env.ref('base.group_portal').id,env.ref('ma2f_core.group_gateway').id])]})
     gateway=env['ma2f.core.operation'].with_user(user)
+    assert {'id':customer.id,'name':customer.name} in gateway.order_customers()
     for model in ['sale.order','account.move','stock.move']:
         assert not env[model].with_user(user).has_access('create')
     before={m:env[m].search_count([]) for m in ['account.move','stock.move','stock.quant']}

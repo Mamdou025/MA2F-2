@@ -11,6 +11,25 @@ class OrderOperation(models.Model):
     order_id = fields.Many2one('sale.order', readonly=True, ondelete='restrict')
 
     @api.model
+    def order_customers(self):
+        """Bounded selector of imported contacts, with native IDs; no fuzzy matching."""
+        if not self.env.user.has_group('ma2f_core.group_gateway'):
+            raise AccessError('MA2F_FORBIDDEN')
+        if self.env.cr.dbname not in ['ma2f_odoo', 'ma2f_core_test'] or self.env.company.id != 1:
+            raise AccessError('MA2F_WRONG_DATABASE_OR_COMPANY')
+        if self.env['ir.config_parameter'].sudo().get_param('ma2f.integration.orders_enabled') != 'true':
+            raise AccessError('MA2F_ORDERS_DISABLED')
+        markers = self.sudo().env['ir.model.data'].search([
+            ('module', '=', 'ma2f_history'), ('model', '=', 'res.partner'),
+            ('name', '=like', 'customer_%')], limit=2001)
+        if len(markers) > 2000:
+            raise UserError('MA2F_CUSTOMER_SELECTOR_LIMIT')
+        customers = self.sudo().env['res.partner'].search([
+            ('id', 'in', markers.mapped('res_id')), ('company_id', '=', 1),
+            ('active', '=', True), ('customer_rank', '>', 0), ('type', '=', 'contact')], order='name,id')
+        return [{'id': p.id, 'name': p.name} for p in customers]
+
+    @api.model
     def record_order(self, command):
         if not self.env.user.has_group('ma2f_core.group_gateway'):
             raise AccessError('MA2F_FORBIDDEN')
@@ -53,6 +72,9 @@ class OrderOperation(models.Model):
         if not pricelist or not pricelist.active or pricelist.company_id.id != 1 or pricelist.currency_id != currency:
             raise UserError('MA2F_PRICELIST_CONFIGURATION_REQUIRED')
         if not customer or not customer.active or customer.company_id.id != 1 or customer.type != 'contact' or customer.customer_rank < 1:
+            raise UserError('MA2F_CUSTOMER_MAPPING_REQUIRED')
+        if not native['ir.model.data'].search_count([('module', '=', 'ma2f_history'),
+                ('model', '=', 'res.partner'), ('res_id', '=', customer.id), ('name', '=like', 'customer_%')]):
             raise UserError('MA2F_CUSTOMER_MAPPING_REQUIRED')
         if currency.name != 'XOF' or currency.rounding != 1 or pack.company_id.id != 1 or not pack.active or not pack.sale_ok or pack.uom_id != native.ref('uom.product_uom_unit'):
             raise UserError('MA2F_UNSUPPORTED_ORDER_CONFIGURATION')

@@ -2,6 +2,34 @@
 import re
 
 
+def check_command_account(cursor, configured_id=None):
+    """A separate portal identity may invoke bounded commands, never generic writes."""
+    cursor.execute("SELECT id,active,share,company_id FROM res_users WHERE login='ma2f.orders'")
+    rows = cursor.fetchall()
+    if not rows:
+        return  # Source may be deployed before the identity is commissioned.
+    if not configured_id or not re.fullmatch(r'[1-9][0-9]*', configured_id):
+        raise ValueError('Order gateway identity must be explicitly configured')
+    uid = int(configured_id)
+    if uid <= 2 or rows != [(uid, True, True, 1)]:
+        raise ValueError('Unexpected order gateway identity')
+    cursor.execute("SELECT res_id FROM ir_model_data WHERE module='ma2f_core' AND name='order_gateway_user' AND model='res.users'")
+    if cursor.fetchone() != (uid,):
+        raise ValueError('Order gateway provenance missing')
+    cursor.execute("""SELECT EXISTS (
+      SELECT 1 FROM res_groups_users_rel r JOIN ir_model_data d ON d.res_id=r.gid
+      WHERE r.uid=%s AND d.model='res.groups' AND d.module='ma2f_core' AND d.name='group_gateway')""", (uid,))
+    if cursor.fetchone() != (True,):
+        raise ValueError('Bounded gateway group required')
+    cursor.execute("""SELECT EXISTS (
+      SELECT 1 FROM ir_model_access a JOIN ir_model m ON m.id=a.model_id
+      WHERE a.active AND (m.model LIKE 'stock.%%' OR m.model LIKE 'mrp.%%' OR m.model LIKE 'sale.%%' OR m.model LIKE 'account.%%')
+      AND (a.perm_write OR a.perm_create OR a.perm_unlink)
+      AND (a.group_id IS NULL OR a.group_id IN (SELECT gid FROM res_groups_users_rel WHERE uid=%s)))""", (uid,))
+    if cursor.fetchone() != (False,):
+        raise ValueError('Order gateway has generic business write permissions')
+
+
 def check_accounts(cursor, configured_id=None, configured_admin_id=None):
     for value in (configured_id, configured_admin_id):
         if value is not None and (not re.fullmatch(r'[1-9][0-9]*', value) or int(value) <= 2):

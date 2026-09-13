@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
+Draft-order commissioning now includes a French workspace at
+`/api/odoo-orders/workspace`, linked from Commandes. It requires the separate
+native session and preserved business permission. The customer selector exposes
+only imported Odoo contact IDs, and submissions do not also write to Firebase.
+Pending references survive browser reloads for recovery. Deployment installs
+`ma2f_core` via `order_maintenance.py`; prepare/enable are separate and stock flags
+remain false. Production startup checks the separate `ODOO_COMMAND_USER_ID`.
+`scripts/provision_order_queue.mjs` provisions only queue permissions using a
+private production connection file. Never log generated credentials or tokens.
+
 September 12 owner decision: taxes are handled outside Odoo. The draft-order
 contract uses `unitPriceFCFA` and `totalFCFA`, accepts no tax ID, explicitly clears
 native order-line taxes and requires zero native tax. Do not configure a tax rate

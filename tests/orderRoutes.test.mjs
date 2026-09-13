@@ -9,13 +9,17 @@ test('order HTTP boundary requires native session, rights, origin and amounts wi
  const queue={enqueue:async c=>{queued++;assert.equal(c.actorId,user.id);assert.equal(c.operation,'order');assert.equal(Object.hasOwn(c.payload,'taxId'),false);assert.equal(c.payload.unitPriceFCFA,600);return {requestId:c.requestId,state:'queued',result:null};},status:async(id,actor)=>{assert.equal(actor,user.id);return null;}};
  const origin='https://ma2f.example.invalid';
  const env={MA2F_AUTH_ORIGIN:origin,MA2F_LOCAL_AUTH_ENABLED:'true',MA2F_RUNTIME_ENABLED:'true',MA2F_ODOO_ORDERS_ENABLED:'true'};
- const app=express();app.use('/orders',orderRouter(env,{auth,queue}));app.use('/off',orderRouter({}));
+ let customerReads=0;
+ const app=express();app.use('/orders',orderRouter(env,{auth,queue,customers:async()=>{customerReads++;return [{id:7,name:'Fictional'}];}}));app.use('/off',orderRouter({}));
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  const base=`http://127.0.0.1:${server.address().port}`;
  const body={requestId:randomUUID(),customerId:7,packs:7,unitPriceFCFA:600};
  const post=(b=body,from=origin)=>fetch(base+'/orders',{method:'POST',headers:{Origin:from,'Content-Type':'application/json'},body:JSON.stringify(b)});
  try{
   assert.equal((await fetch(base+'/off')).status,503);
+  const page=await fetch(base+'/off/workspace');assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/default-src 'none'/);
+  const html=await page.text();const {Script}=await import('node:vm');new Script(html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1]);
+  assert.equal((await fetch(base+'/orders/customers')).status,401);assert.equal(customerReads,0);
   assert.equal((await post()).status,401);assert.equal(queued,0);signed=true;
   assert.equal((await post(body,'https://foreign.invalid')).status,403);
   assert.equal((await post({...body,actorId:'admin'})).status,400);

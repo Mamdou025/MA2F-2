@@ -3,7 +3,7 @@ import configparser,os,re,secrets,subprocess,tempfile
 from pathlib import Path
 from urllib.parse import urlsplit,unquote,parse_qs
 import psycopg2
-from integration_access import check_accounts
+from integration_access import check_accounts, check_command_account
 from community_sources import verified_addons_path
 R=Path(__file__).resolve().parent
 HOST='ep-snowy-glade-ax2tsvpa.c-4.us-east-2.aws.neon.tech'
@@ -29,6 +29,7 @@ def check(s):
    x.execute('SELECT key,value FROM ir_config_parameter WHERE key=ANY(%s)',(['ir_attachment.location','auth_signup.invitation_scope','database.is_neutralized'],));v=dict(x.fetchall())
    if v!={'ir_attachment.location':'db','auth_signup.invitation_scope':'b2b','database.is_neutralized':'true'}:raise ValueError('Storage or access configuration not ready')
    check_accounts(x, os.environ.get('ODOO_INTEGRATION_USER_ID'), os.environ.get('ODOO_ADMIN_USER_ID'))
+   check_command_account(x, os.environ.get('ODOO_COMMAND_USER_ID'))
    x.execute("SELECT count(*) FROM ir_attachment WHERE store_fname IS NOT NULL AND store_fname<>''")
    if x.fetchone()!=(0,):raise ValueError('SQL attachments required')
   c.rollback()
@@ -48,7 +49,7 @@ def main():
   raise SystemExit('Production preflight failed; verify runtime secret and initialized database. No credentials logged.')
  target=Path(tempfile.mkdtemp(prefix='ma2f-odoo-'))
  cfg=configparser.ConfigParser(interpolation=None)
- cfg['options']={'db_host':s['host'],'db_port':'5432','db_name':'ma2f_odoo','db_user':s['user'],'db_password':s['password'],'db_sslmode':'verify-full','dbfilter':'^ma2f_odoo$','list_db':'False','admin_passwd':secrets.token_urlsafe(48),'http_interface':'0.0.0.0','http_port':str(port),'proxy_mode':'True','workers':'0','max_cron_threads':'0','db_maxconn':'8','data_dir':str(target/'data'),'addons_path':str(R/'.local/odoo-source/addons')+','+community_path}
+ cfg['options']={'db_host':s['host'],'db_port':'5432','db_name':'ma2f_odoo','db_user':s['user'],'db_password':s['password'],'db_sslmode':'verify-full','dbfilter':'^ma2f_odoo$','list_db':'False','admin_passwd':secrets.token_urlsafe(48),'http_interface':'0.0.0.0','http_port':str(port),'proxy_mode':'True','workers':'0','max_cron_threads':'0','db_maxconn':'8','data_dir':str(target/'data'),'addons_path':str(R/'.local/odoo-source/addons')+','+community_path+','+str(R/'addons')}
  with (target/'odoo.conf').open('x') as f:cfg.write(f)
  child={k:v for k,v in os.environ.items() if not k.startswith(('PG','ODOO_')) and k!='DATABASE_URL'}
  child['PGSSLROOTCERT']='/etc/ssl/certs/ca-certificates.crt'

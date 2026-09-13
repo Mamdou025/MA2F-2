@@ -5,11 +5,14 @@ import {canLocalAction,loadLocalProfile} from './localProfile';
 import {createRuntimeState} from './runtimeDatabase';
 import {CommandOutbox} from './commandOutbox';
 import {validateOrderPayload,orderDispatcher,runOrderOnce} from './orderWorker';
+import {orderPage} from './orderPage';
+import {orderCustomers} from './orderCustomers';
 
 type Queue=Pick<CommandOutbox,'enqueue'|'status'|'claim'|'complete'|'review'|'uncertain'>;
 /** Opt-in native-auth draft-order API. No Firebase or anonymous write fallback. */
-export function orderRouter(env:NodeJS.ProcessEnv=process.env,deps?:{auth:LocalAuthRuntime;queue:Queue}){
+export function orderRouter(env:NodeJS.ProcessEnv=process.env,deps?:{auth:LocalAuthRuntime;queue:Queue;customers?:()=>Promise<{id:number;name:string}[]>}){
   const router=express.Router();router.use((_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
+  router.get('/workspace',orderPage);
   if(env.MA2F_LOCAL_AUTH_ENABLED!=='true'||env.MA2F_RUNTIME_ENABLED!=='true'||env.MA2F_ODOO_ORDERS_ENABLED!=='true'){
     router.use((_req,res)=>{res.status(503).json({error:'orders_not_enabled'});});return router;
   }
@@ -25,6 +28,10 @@ export function orderRouter(env:NodeJS.ProcessEnv=process.env,deps?:{auth:LocalA
       const timer=setTimeout(tick,2000);timer.unref();};
     const timer=setTimeout(tick,2000);timer.unref();
   }
+  router.get('/customers',requireLocalAction(auth,'commandes','create'),async(_req,res)=>{
+    try{res.json(await (deps?.customers||orderCustomers(env))());}
+    catch{res.status(503).json({error:'order_customers_unavailable'});}
+  });
   router.get('/:requestId',requireLocalAction(auth,'commandes','read'),async(req,res)=>{
     try{const status=await queue.status(req.params.requestId,res.locals.ma2f.userId);
       if(!status){res.status(404).json({error:'order_request_not_found'});return;}res.json(status);

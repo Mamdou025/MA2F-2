@@ -840,6 +840,7 @@ export default function CommandesSection() {
           <p className="text-sm text-gray-500">{commandes.length} commande(s) enregistrée(s)</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild><a href="/api/odoo-orders/workspace">Devis Odoo</a></Button>
           <Button variant="outline" onClick={handleOpenDispatch} className="border-[#1B4B6B] text-[#1B4B6B] hover:bg-[#1B4B6B]/5">
             <Route className="w-4 h-4 mr-2" /> Dispatching
           </Button>
