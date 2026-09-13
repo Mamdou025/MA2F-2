@@ -10,6 +10,7 @@ class Cursor:
 class OrderAccessTests(unittest.TestCase):
     def test_locked_before_commissioning(self):check_command_account(Cursor([[]]))
     def test_restricted_gateway(self):check_command_account(Cursor([[(12,True,True,1)],(12,),(True,),(False,)]),'12')
+    def test_prepared_inactive_identity_does_not_block_restart(self):check_command_account(Cursor([[(12,False,True,1)],(12,),(True,),(False,)]))
     def test_unconfigured_identity(self):
         with self.assertRaises(ValueError):check_command_account(Cursor([[(12,True,True,1)]]))
     def test_generic_writes_rejected(self):

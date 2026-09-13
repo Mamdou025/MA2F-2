@@ -8,10 +8,14 @@ def check_command_account(cursor, configured_id=None):
     rows = cursor.fetchall()
     if not rows:
         return  # Source may be deployed before the identity is commissioned.
+    # A prepared, disabled identity cannot authenticate and must not prevent
+    # production from restarting while its deployment setting is being saved.
+    if configured_id is None and len(rows) == 1 and rows[0][1] is False:
+        configured_id = str(rows[0][0])
     if not configured_id or not re.fullmatch(r'[1-9][0-9]*', configured_id):
         raise ValueError('Order gateway identity must be explicitly configured')
     uid = int(configured_id)
-    if uid <= 2 or rows != [(uid, True, True, 1)]:
+    if uid <= 2 or len(rows) != 1 or rows[0] not in [(uid, True, True, 1), (uid, False, True, 1)]:
         raise ValueError('Unexpected order gateway identity')
     cursor.execute("SELECT res_id FROM ir_model_data WHERE module='ma2f_core' AND name='order_gateway_user' AND model='res.users'")
     if cursor.fetchone() != (uid,):
